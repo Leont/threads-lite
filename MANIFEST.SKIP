@@ -1,0 +1,14 @@
+^_build
+^Build$
+^blib
+~$
+\.bak$
+^MANIFEST\.SKIP$
+\.swp
+\.tdy
+\.tar\.gz
+threads-lite-.*
+^\.git
+^lib/.*\.c$
+^lib/.*\.o$
+^.ignore
