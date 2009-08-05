@@ -3,6 +3,7 @@ package threads::lite::queue;
 use strict;
 use warnings;
 
+use Storable 2.05;
 use threads::lite;
 
 sub STORABLE_freeze {

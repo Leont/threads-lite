@@ -5,10 +5,8 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use base qw/DynaLoader/;
-
-use Storable 2.05;
 use threads::lite::queue;
+use base qw/DynaLoader/;
 
 threads::lite->bootstrap($VERSION);
 shift our @ISA;
@@ -17,22 +15,6 @@ sub _run {
 	my ($queue) = shift;
 	warn "# Running!\n";
 	my @args = $queue->dequeue;
-}
-
-sub create {
-	my ($class, @args) = @_;
-	my $self = bless {
-		queue => threads::lite::queue->new(),
-	}, $class;
-	$self->send(@args);
-	$self->_start(1024 * 1024);
-	return $self;
-}
-
-sub send {
-	my ($self, @args) = @_;
-	$self->{queue}->enqueue(@args);
-	return scalar @args;
 }
 
 sub STORABLE_freeze {

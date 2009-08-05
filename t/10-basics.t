@@ -14,7 +14,7 @@ is($queue->dequeue, 'foo', 'dequeued \'foo\'');
 
 alarm 0;
 
-threads::lite->create(1, 'arguments');
+threads::lite->create(1, 'arguments', [1, 2, 3]);
 
 ok(1, 'Created thread');
 
