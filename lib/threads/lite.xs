@@ -405,35 +405,42 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
+#define my_perl thread->interp
 void* run_thread(void* arg) {
 	MUTEX_LOCK(&global.lock);
 	++global.count;
 	MUTEX_UNLOCK(&global.lock);
 
 	mthread* thread = (mthread*) arg;
-	PerlInterpreter* my_perl = perl_alloc();
-	thread->interp = my_perl;
-	perl_construct(my_perl);
+	thread->interp = perl_alloc();
+	perl_construct(thread->interp);
 	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
 
-	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
-	load_module(PERL_LOADMOD_DENY, newSVpv("threads::lite", 0), NULL, NULL);
+	perl_parse(thread->interp, xs_init, argc, (char**)argv, NULL);
 	S_set_sigmask(&thread->initial_sigmask);
 
+	SV* thread_sv = newSV_type(SVt_PV);
+	SvPVX(thread_sv) = (char*) thread;
+	SvCUR(thread_sv) = sizeof(mthread);
+	SvLEN(thread_sv) = 0;
+	SvPOK_only(thread_sv);
+	SvREADONLY_on(thread_sv);
+	hv_store(PL_modglobal, "thread::lite::self", 18, thread_sv, 0);
+
+	load_module(PERL_LOADMOD_DENY, newSVpv("threads::lite", 0), NULL, NULL);
+
 	dSP;
-	SAVETMPS;
 	PUSHMARK(SP);
-	PUSHs(sv_2mortal(queue_object_new(thread->queue, NULL, TRUE)));
-	PUTBACK;
-	call_pv("threads::lite::_run", G_VOID);
-	SPAGAIN;
-	FREETMPS;
+//	PUSHs(sv_2mortal(queue_object_new(thread->queue, NULL, TRUE)));
+//	PUTBACK;
+	call_pv("threads::lite::_run", G_VOID|G_DISCARD);
 
 	MUTEX_LOCK(&global.lock);
 	--global.count;
 	MUTEX_UNLOCK(&global.lock);
 	return NULL;
 }
+#undef my_perl
 
 static int S_mthread_hook(pTHX) {
 	MUTEX_LOCK(&global.lock);
@@ -576,7 +583,16 @@ send(object, ...)
 		message_queue* queue = ((mthread*)magic->mg_ptr)->queue;
 		queue_enqueue(queue, PL_stack_base + ax + 1, items - 1);
 
-
+void
+receive()
+	PPCODE:
+		SV** self_sv = hv_fetch(PL_modglobal, "thread::lite::self", 18, FALSE);
+		if (!self_sv)
+			Perl_croak(aTHX_ "Can't find self thread object!");
+		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
+		SV* values = queue_dequeue(thread->queue);
+		push_queued(values);
+	
 
 MODULE = threads::lite             PACKAGE = threads::lite::queue
 

@@ -12,9 +12,8 @@ threads::lite->bootstrap($VERSION);
 shift our @ISA;
 
 sub _run {
-	my ($queue) = shift;
 	warn "# Running!\n";
-	my @args = $queue->dequeue;
+	my @args = threads::lite::receive();
 }
 
 sub STORABLE_freeze {
@@ -43,6 +42,8 @@ This module implements threads for perl. One crucial difference with normal thre
 =head2 create
 
 =head2 send
+
+=head2 receive
 
 =head1 AUTHOR
 
