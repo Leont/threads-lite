@@ -16,6 +16,7 @@ our @EXPORT    = qw/receive/;
 our @EXPORT_OK = qw/send/;
 
 sub _receive;
+sub _receive_nb;
 
 my @message_cache;
 
@@ -27,6 +28,15 @@ sub _deep_equals {
 	return 1;
 }
 
+sub create {
+	my ($class, @args) = @_;
+	my $thread = $class->_create;
+	for my $arg (@args) {
+		$thread->send(@{$arg});
+	}
+	return $thread;
+}
+
 sub receive {
 	my @args = @_;
 	for my $i (0..$#message_cache) {
@@ -36,6 +46,17 @@ sub receive {
 		return wantarray ? @next : $next[0] if _deep_equals(\@next, \@args);
 		push @message_cache, \@next;
 	}
+}
+
+sub receive_nb {
+	my @args = @_;
+	for my $i (0..$#message_cache) {
+		return splice @message_cache, $i, 1 if _deep_equals($message_cache[$i], \@args);
+	}
+	return if not my @next = _receive_nb;
+	return wantarray ? @next : $next[0] if _deep_equals(\@next, \@args);
+	push @message_cache, \@next;
+	return;
 }
 
 sub _run {
@@ -72,6 +93,8 @@ This module implements threads for perl. One crucial difference with normal thre
 =head2 send
 
 =head2 receive
+
+=head2 receive_nb
 
 =head1 AUTHOR
 

@@ -382,6 +382,9 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
+void load_modules(SV** start, SV** end) {
+}
+
 #define my_perl thread->interp
 void* run_thread(void* arg) {
 	MUTEX_LOCK(&global.lock);
@@ -407,8 +410,35 @@ void* run_thread(void* arg) {
 	load_module(PERL_LOADMOD_DENY, newSVpv("threads::lite", 0), NULL, NULL);
 
 	dSP;
+	SV** oldsp = SP;
+	ENTER;
+
+	SAVETMPS;
 	PUSHMARK(SP);
-	call_pv("threads::lite::_run", G_VOID|G_DISCARD);
+	PUSHs(sv_2mortal(newSVpvn("_init", 5)));
+	PUTBACK;
+	call_pv("threads::lite::receive_nb", G_ARRAY);
+	SPAGAIN;
+	load_modules(oldsp + 1, SP);
+	FREETMPS;
+
+	SP = oldsp;
+
+	PUSHMARK(SP);
+	PUSHs(sv_2mortal(newSVpvn("_start", 6)));
+	PUTBACK;
+	call_pv("threads::lite::receive", G_ARRAY);
+	SPAGAIN;
+
+	if (SP - oldsp < 2)
+		Perl_croak(aTHX_ "No sub given to start");
+	SV* call = POPs;
+	PUSHMARK(SP);
+	PUTBACK;
+	call_sv(call, G_VOID|G_DISCARD);
+	FREETMPS;
+
+	LEAVE;
 
 	MUTEX_LOCK(&global.lock);
 	--global.count;
@@ -536,7 +566,7 @@ BOOT:
 
 
 SV*
-create(object, ...)
+_create(object, ...)
 	SV* object;
 	CODE:
 		mthread* thread = create_thread(65536);

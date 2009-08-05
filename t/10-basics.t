@@ -4,17 +4,8 @@ use Test::More 'no_plan';
 
 use threads::lite;
 
-my $queue = threads::lite::queue->new();
-
-$queue->enqueue('foo');
-
-alarm 3;
-
-is($queue->dequeue, 'foo', 'dequeued \'foo\'');
-
-alarm 0;
-
-threads::lite->create(1, 'arguments', [1, 2, 3]);
+my $thread = threads::lite->create( [ _start => sub { print STDERR "It seems to be working!\n" } ] );
+#my $thread = threads::lite->create(1, 'arguments', [1, 2, 3]);
 
 ok(1, 'Created thread');
 
