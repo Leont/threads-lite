@@ -129,6 +129,25 @@ typedef struct queue_node {
 	struct queue_node* next;
 } queue_node;
 
+void node_unshift(queue_node** position, queue_node* new_node) {
+	new_node->next = *position;
+	*position = new_node;
+}
+
+queue_node* node_shift(queue_node** position) {
+	queue_node* ret = *position;
+	*position = (*position)->next;
+	return ret;
+}
+
+void node_push(queue_node** end, queue_node* new_node) {
+	queue_node** cur = end;
+	while(*cur)
+		cur = &(*cur)->next;
+	*end = *cur = new_node;
+	new_node->next = NULL;
+}
+
 struct message_queue {
 	perl_mutex mutex;
 	perl_cond condvar;
@@ -216,8 +235,7 @@ void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
 
 	queue_node* new_entry;
 	if (queue->reserve) {
-		new_entry      = queue->reserve;
-		queue->reserve = queue->reserve->next;
+		new_entry = node_shift(&queue->reserve);
 	}
 	else
 		Newx(new_entry, 1, queue_node);
@@ -225,14 +243,8 @@ void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
 	Copy(&message, &new_entry->message, 1, message);
 	new_entry->next = NULL;
 
-	if (queue->back != NULL) {
-		queue->back->next = new_entry;
-		queue->back       = queue->back->next;
-	}
-	else {
-		queue->back = new_entry;
-	}
-	if( queue->front == NULL)
+	node_push(&queue->back, new_entry);
+	if (queue->front == NULL)
 		queue->front = queue->back;
 
 	COND_SIGNAL(&queue->condvar);
@@ -299,15 +311,12 @@ SV* S_queue_dequeue(pTHX_ message_queue* queue) {
 	while (!queue->front)
 		COND_WAIT(&queue->condvar, &queue->mutex);
 
-	Copy(&queue->front->message, &message, 1, message);
+	queue_node* front = node_shift(&queue->front);
+	Copy(&front->message, &message, 1, message);
+	node_unshift(&queue->reserve, front);
 
-	if (queue->back == queue->front)
+	if (queue->front == NULL)
 		queue->back = NULL;
-
-	queue_node* new_front = queue->front->next;
-	queue->front->next    = queue->reserve;
-	queue->reserve        = queue->front;
-	queue->front          = new_front;
 
 	MUTEX_UNLOCK(&queue->mutex);
 	return deserialize(&message);
@@ -321,15 +330,13 @@ SV* S_queue_dequeue_nb(pTHX_ message_queue* queue) {
 	MUTEX_LOCK(&queue->mutex);
 
 	if(queue->front) {
-		Copy(&queue->front->message, &message, 1, message);
+		queue_node* front = node_shift(&queue->front);
+		Copy(&front->message, &message, 1, message);
+		node_unshift(&queue->reserve, front);
 
-		if (queue->back == queue->front)
+		if (queue->front == NULL)
 			queue->back = NULL;
 
-		queue_node* new_front = queue->front->next;
-		queue->front->next    = queue->reserve;
-		queue->reserve        = queue->front;
-		queue->front          = new_front;
 		MUTEX_UNLOCK(&queue->mutex);
 		return deserialize(&message);
 	}
