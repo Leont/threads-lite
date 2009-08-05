@@ -48,7 +48,7 @@ STATIC int S_set_sigmask(sigset_t *);
  * struct message
  */
 
-enum node_type { STRING = 1, STORABLE = 2, QUEUE = 3, THREAD = 4 };
+enum node_type { STRING = 1, STORABLE = 2, THREAD = 3 };
 
 typedef struct message_queue message_queue;
 typedef struct mthread mthread;
@@ -107,9 +107,6 @@ void S_message_destroy(pTHX_ message* message) {
 		case STRING:
 		case STORABLE:
 			Safefree(message->string.ptr);
-			break;
-		case QUEUE:
-			queue_delref(message->queue);
 			break;
 		case THREAD:
 			//XXX
@@ -174,7 +171,6 @@ void* S_get_pointer_from(pTHX_ SV* queue_obj) {
 }
 
 #define get_pointer_from(obj) S_get_pointer_from(aTHX_ obj)
-#define get_queue_from(obj) (message_queue*)get_pointer_from(obj)
 #define get_thread_from(obj) (mthread*)get_pointer_from(obj)
 
 void queue_addref(message_queue* queue) {
@@ -215,11 +211,6 @@ void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
 			message.type = THREAD;
 			message.thread = get_thread_from(arg);
 //			thread_addref(message.thread);
-		}
-		else if (SvROK(arg) && sv_isobject(arg) && sv_isa(arg, "threads::lite::queue")) {
-			message.type = QUEUE;
-			message.queue = get_queue_from(arg);
-			queue_addref(message.queue);
 		}
 		else if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
 			message_store_value(&message, arg);
@@ -262,18 +253,6 @@ SV* S_object_new(pTHX_ HV* stash) {
 
 #define object_new(hash) S_object_new(aTHX_ hash)
 
-SV* S_queue_object_new(pTHX_ message_queue* queue, HV* stash, bool addref) {
-	if (stash == NULL)
-		stash = gv_stashpv("threads::lite::queue", FALSE);
-	SV* ret = object_new(stash);
-	sv_magicext(SvRV(ret), NULL, PERL_MAGIC_ext, &table, (char*)queue, 0);
-	if (addref)
-		queue_addref(queue);
-	return ret;
-}
-
-#define queue_object_new(queue, stash, addref) S_queue_object_new(aTHX_ queue, stash, addref)
-
 SV* S_deserialize(pTHX_ message* message) {
 	switch(message->type) {
 		case STRING:
@@ -290,8 +269,6 @@ SV* S_deserialize(pTHX_ message* message) {
 			LEAVE;
 			return SvRV(POPs);
 		}
-		case QUEUE:
-			return queue_object_new(message->queue, NULL, TRUE);
 		case THREAD: {
 			SV* ret = object_new(gv_stashpv("threads::lite", FALSE));
 			sv_magicext(SvRV(ret), NULL, PERL_MAGIC_ext, &table, (char*)message->thread, 0);
@@ -431,8 +408,6 @@ void* run_thread(void* arg) {
 
 	dSP;
 	PUSHMARK(SP);
-//	PUSHs(sv_2mortal(queue_object_new(thread->queue, NULL, TRUE)));
-//	PUTBACK;
 	call_pv("threads::lite::_run", G_VOID|G_DISCARD);
 
 	MUTEX_LOCK(&global.lock);
@@ -593,42 +568,14 @@ _receive()
 		SV* values = queue_dequeue(thread->queue);
 		push_queued(values);
 	
-
-MODULE = threads::lite             PACKAGE = threads::lite::queue
-
-PROTOTYPES: DISABLED
-
-SV*
-new(class)
-	SV* class;
-	PPCODE:
-		message_queue* queue = queue_new();
-		SV* ret = queue_object_new(queue, gv_stashsv(class, FALSE), FALSE);
-		PUSHs(sv_2mortal(ret));
-
 void
-enqueue(object, ...)
-	SV* object;
-	CODE:
-		message_queue* queue = get_queue_from(object);
-		if (items == 1)
-			Perl_croak(aTHX_ "Can't enqueue empty list\n");
-		queue_enqueue(queue, PL_stack_base + ax + 1, items - 1);
-
-void
-dequeue(object)
-	SV* object;
+_receive_nb()
 	PPCODE:
-		message_queue* queue = get_queue_from(object);
-		SV* values = queue_dequeue(queue);
-		push_queued(values);
-
-void
-dequeue_nb(object)
-	SV* object;
-	PPCODE:
-		message_queue* queue = get_queue_from(object);
-		SV* values = queue_dequeue_nb(queue);
+		SV** self_sv = hv_fetch(PL_modglobal, "thread::lite::self", 18, FALSE);
+		if (!self_sv)
+			Perl_croak(aTHX_ "Can't find self thread object!");
+		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
+		SV* values = queue_dequeue_nb(thread->queue);
 		if (values)
 			push_queued(values);
 		else
