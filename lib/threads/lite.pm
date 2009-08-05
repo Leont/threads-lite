@@ -6,19 +6,46 @@ use warnings;
 our $VERSION = '0.01';
 
 use threads::lite::queue;
-use base qw/DynaLoader/;
+use base qw/DynaLoader Exporter/;
 
 threads::lite->bootstrap($VERSION);
-shift our @ISA;
+
+##no critic ProhibitAutomaticExportation
+our @EXPORT    = qw/receive/;
+our @EXPORT_OK = qw/send/;
+
+sub _receive;
+
+my @message_cache;
+
+sub _deep_equals {
+	my ($message, $criterion) = @_;
+	for my $i (0..$#{$criterion}) {
+		return if $#{$message} < $i or $message->[$i] ne $criterion->[$i];
+	}
+	return 1;
+}
+
+sub receive {
+	my @args = @_;
+	for my $i (0..$#message_cache) {
+		return splice @message_cache, $i, 1 if _deep_equals($message_cache[$i], \@args);
+	}
+	while (my @next = _receive) {
+		return wantarray ? @next : $next[0] if _deep_equals(\@next, \@args);
+		push @message_cache, \@next;
+	}
+}
 
 sub _run {
 	warn "# Running!\n";
 	my @args = threads::lite::receive();
+	return;
 }
 
 sub STORABLE_freeze {
 	require Carp;
-	Carp::croak "Can't freeze thread queue";
+	Carp::croak 'Can\'t freeze thread queue';
 }
 
 1;

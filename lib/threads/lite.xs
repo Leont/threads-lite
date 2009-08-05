@@ -584,7 +584,7 @@ send(object, ...)
 		queue_enqueue(queue, PL_stack_base + ax + 1, items - 1);
 
 void
-receive()
+_receive()
 	PPCODE:
 		SV** self_sv = hv_fetch(PL_modglobal, "thread::lite::self", 18, FALSE);
 		if (!self_sv)
