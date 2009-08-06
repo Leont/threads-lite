@@ -383,6 +383,9 @@ static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
 void load_modules(SV** start, SV** end) {
+	SV** current;
+	for(current = start; current <= end; ++current)
+		load_module(PERL_LOADMOD_DENY, *current, NULL, NULL);
 }
 
 #define my_perl thread->interp
