@@ -48,7 +48,7 @@ STATIC int S_set_sigmask(sigset_t *);
  * struct message
  */
 
-enum node_type { STRING = 1, STORABLE = 2, THREAD = 3 };
+enum node_type { STRING = 1, STORABLE = 2 };
 
 typedef struct message_queue message_queue;
 typedef struct mthread mthread;
@@ -107,9 +107,6 @@ void S_message_destroy(pTHX_ message* message) {
 		case STRING:
 		case STORABLE:
 			Safefree(message->string.ptr);
-			break;
-		case THREAD:
-			//XXX
 			break;
 		default:
 			Perl_warn(aTHX_ "Unknown type in queue\n");
@@ -205,12 +202,7 @@ void queue_delref(message_queue* queue) {
 void S_serialize_arguments(pTHX_ message* message, SV** argslist, UV length) {
 	if (length == 1) {
 		SV* arg = *argslist;
-		if (SvROK(arg) && sv_isobject(arg) && sv_isa(arg, "threads::lite")) {
-			message->type = THREAD;
-			message->thread = get_thread_from(arg);
-//			thread_addref(message.thread);
-		}
-		else if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
+		if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
 			message_store_value(message, arg);
 		else
 			message_set_sv(message, arg, STRING);
@@ -247,8 +239,6 @@ void queue_enqueue_message(message_queue* queue, message* message_) {
 static MGVTBL table = { 0 };
 
 SV* S_object_new(pTHX_ HV* stash) {
-	SV* ret = newRV_noinc(newSV_type(SVt_PVMG));
-	sv_bless(ret, stash);
 }
 
 #define object_new(hash) S_object_new(aTHX_ hash)
@@ -317,11 +307,6 @@ void S_push_message(pTHX_ message* message) {
 				SP += count;
 			}
 			break;
-		}
-		case THREAD: {
-			SV* ret = object_new(gv_stashpv("threads::lite", FALSE));
-			sv_magicext(SvRV(ret), NULL, PERL_MAGIC_ext, &table, (char*)message->thread, 0);
-			PUSHs(sv_2mortal(ret));
 		}
 		default:
 			Perl_croak(aTHX_ "Type %d is not yet implemented", message->type);
@@ -558,24 +543,10 @@ _create(object)
 	SV* object;
 	CODE:
 		mthread* thread = create_thread(65536);
-		RETVAL = object_new(gv_stashpv("threads::lite", FALSE));
-		sv_magicext(SvRV(RETVAL), NULL, PERL_MAGIC_ext, &table, (char*)thread, 0);
+		RETVAL = newRV_noinc(newSVuv(PTR2UV(thread)));
+		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
 	OUTPUT:
 		RETVAL
-
-void
-send(object, ...)
-	SV* object;
-	CODE:
-		MAGIC* magic;
-		if (!SvROK(object) || !SvMAGICAL(SvRV(object)) || !(magic = mg_find(SvRV(object), PERL_MAGIC_ext)))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a magic thread object\n");
-		if (items == 1)
-			Perl_croak(aTHX_ "Can't send an empty list\n");
-		message_queue* queue = ((mthread*)magic->mg_ptr)->queue;
-		message message;
-		serialize_arguments(&message, PL_stack_base + ax + 1, items - 1);
-		queue_enqueue_message(queue, &message);
 
 void
 _receive()
@@ -600,3 +571,21 @@ _receive_nb()
 			 push_message(&message);
 		else
 			XSRETURN_EMPTY;
+
+MODULE = threads::lite             PACKAGE = threads::lite::tid
+
+PROTOTYPES: DISABLED
+
+void
+send(object, ...)
+	SV* object;
+	CODE:
+		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
+			Perl_croak(aTHX_ "Something is very wrong, this is not a magic thread object\n");
+		if (items == 1)
+			Perl_croak(aTHX_ "Can't send an empty list\n");
+		message_queue* queue = (INT2PTR(mthread*, SvUV(SvRV(object))))->queue;
+		message message;
+		serialize_arguments(&message, PL_stack_base + ax + 1, items - 1);
+		queue_enqueue_message(queue, &message);
+

@@ -58,11 +58,6 @@ sub receive_nb {
 	return;
 }
 
-sub STORABLE_freeze {
-	require Carp;
-	Carp::croak 'Can\'t freeze thread queue';
-}
-
 1;
 
 __END__
