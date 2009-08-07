@@ -139,7 +139,6 @@ typedef struct {
 	queue_node* front;
 	queue_node* back;
 	queue_node* reserve;
-	UV refcnt;
 } message_queue;
 
 message_queue* queue_new() {
@@ -147,37 +146,7 @@ message_queue* queue_new() {
 	Newxz(queue, 1, message_queue);
 	MUTEX_INIT(&queue->mutex);
 	COND_INIT(&queue->condvar);
-	queue->refcnt = 1;
 	return queue;
-}
-
-void queue_addref(message_queue* queue) {
-	MUTEX_LOCK(&queue->mutex);
-	assert(queue->refcnt);
-	++queue->refcnt;
-	MUTEX_UNLOCK(&queue->mutex);
-}
-
-void queue_delref(message_queue* queue) {
-	MUTEX_LOCK(&queue->mutex);
-	--queue->refcnt;
-	if (queue->refcnt == 0) {
-		queue_node *current, *next;
-		for (current = queue->front; current; current = next) {
-			next = current->next;
-			message_destroy(&current->message);
-			Safefree(current);
-		}
-		for (current = queue->reserve; current; current = next) {
-			next = current->next;
-			Safefree(current);
-		}
-		COND_FREE(&queue->condvar);
-		MUTEX_UNLOCK(&queue->mutex);
-		MUTEX_FREE(&queue->mutex);
-	}
-	else
-		MUTEX_UNLOCK(&queue->mutex);
 }
 
 void S_serialize_arguments(pTHX_ message* message, SV** argslist, UV length) {
@@ -313,7 +282,6 @@ typedef struct {
 	pthread_t thr;              /* OS's handle for the thread */
 	sigset_t initial_sigmask;   /* Thread wakes up with signals blocked */
 #endif
-	UV refcnt;
 } mthread;
 
 void boot_DynaLoader(pTHX_ CV* cv);
