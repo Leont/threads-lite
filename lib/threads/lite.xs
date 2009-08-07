@@ -41,7 +41,7 @@ typedef perl_os_thread pthread_t;
 #endif
 
 #ifndef WIN32
-STATIC int S_set_sigmask(sigset_t *);
+static int S_set_sigmask(sigset_t *);
 #endif
 
 /*
@@ -58,7 +58,7 @@ typedef struct {
 	} string;
 } message;
 
-SV* S_message_get_sv(pTHX_ message* message) {
+static SV* S_message_get_sv(pTHX_ message* message) {
 	SV* stored = newSV_type(SVt_PV);
 	SvPVX(stored) = message->string.ptr;
 	SvLEN(stored) = SvCUR(stored) = message->string.length;
@@ -68,7 +68,7 @@ SV* S_message_get_sv(pTHX_ message* message) {
 
 #define message_get_sv(message) S_message_get_sv(aTHX_ message)
 
-void S_message_set_sv(pTHX_ message* message, SV* value, enum node_type type) {
+static void S_message_set_sv(pTHX_ message* message, SV* value, enum node_type type) {
 	message->type = type;
 	char* string = SvPV(value, message->string.length);
 	message->string.ptr = savepvn(string, message->string.length);
@@ -76,7 +76,7 @@ void S_message_set_sv(pTHX_ message* message, SV* value, enum node_type type) {
 
 #define message_set_sv(message, value, type) S_message_set_sv(aTHX_ message, value, type)
 
-void S_message_store_value(pTHX_ message* message, SV* value) {
+static void S_message_store_value(pTHX_ message* message, SV* value) {
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -93,7 +93,7 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 
 #define message_store_value(message, value) S_message_store_value(aTHX_ message, value)
 
-void S_message_pull_stack(pTHX_ message* message, SV** argslist, UV length) {
+static void S_message_pull_stack(pTHX_ message* message, SV** argslist, UV length) {
 	if (length == 1) {
 		SV* arg = *argslist;
 		if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
@@ -109,7 +109,7 @@ void S_message_pull_stack(pTHX_ message* message, SV** argslist, UV length) {
 
 #define message_pull_stack(message, argslist, length) S_message_pull_stack(aTHX_ message, argslist, length)
 
-void S_message_push_stack(pTHX_ message* message) {
+static void S_message_push_stack(pTHX_ message* message) {
 	dSP;
 
 	switch(message->type) {
@@ -147,7 +147,7 @@ void S_message_push_stack(pTHX_ message* message) {
 
 #define message_push_stack(values) STMT_START { PUTBACK; S_message_push_stack(aTHX_ (values)); SPAGAIN; } STMT_END
 
-void message_destroy(message* message) {
+static void message_destroy(message* message) {
 	switch(message->type) {
 		case STRING:
 		case STORABLE:
@@ -168,18 +168,18 @@ typedef struct queue_node {
 	struct queue_node* next;
 } queue_node;
 
-void node_unshift(queue_node** position, queue_node* new_node) {
+static void node_unshift(queue_node** position, queue_node* new_node) {
 	new_node->next = *position;
 	*position = new_node;
 }
 
-queue_node* node_shift(queue_node** position) {
+static queue_node* node_shift(queue_node** position) {
 	queue_node* ret = *position;
 	*position = (*position)->next;
 	return ret;
 }
 
-void node_push(queue_node** end, queue_node* new_node) {
+static void node_push(queue_node** end, queue_node* new_node) {
 	queue_node** cur = end;
 	while(*cur)
 		cur = &(*cur)->next;
@@ -195,7 +195,7 @@ typedef struct {
 	queue_node* reserve;
 } message_queue;
 
-message_queue* queue_new() {
+static message_queue* queue_new() {
 	message_queue* queue;
 	Newxz(queue, 1, message_queue);
 	MUTEX_INIT(&queue->mutex);
@@ -203,7 +203,7 @@ message_queue* queue_new() {
 	return queue;
 }
 
-void queue_enqueue(message_queue* queue, message* message_) {
+static void queue_enqueue(message_queue* queue, message* message_) {
 	MUTEX_LOCK(&queue->mutex);
 
 	queue_node* new_entry;
@@ -224,9 +224,7 @@ void queue_enqueue(message_queue* queue, message* message_) {
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-static MGVTBL table = { 0 };
-
-void queue_dequeue(message_queue* queue, message* input) {
+static void queue_dequeue(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
 
 	while (!queue->front)
@@ -242,7 +240,7 @@ void queue_dequeue(message_queue* queue, message* input) {
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-bool queue_dequeue_nb(message_queue* queue, message* input) {
+static bool queue_dequeue_nb(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
 
 	if(queue->front) {
@@ -294,13 +292,13 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
-void load_modules(SV** start, SV** end) {
+static void load_modules(SV** start, SV** end) {
 	SV** current;
 	for(current = start; current <= end; ++current)
 		load_module(PERL_LOADMOD_DENY, *current, NULL, NULL);
 }
 
-void* run_thread(void* arg) {
+static void* run_thread(void* arg) {
 	MUTEX_LOCK(&global.lock);
 	++global.count;
 	MUTEX_UNLOCK(&global.lock);
@@ -360,18 +358,10 @@ void* run_thread(void* arg) {
 	return NULL;
 }
 
-static int S_mthread_hook(pTHX) {
-	MUTEX_LOCK(&global.lock);
-	int ret = global.count;
-	MUTEX_UNLOCK(&global.lock);
-	return ret;
-}
-
 #ifndef WIN32
 /* Block most signals for calling thread, setting the old signal mask to
  * oldmask, if it is not NULL */
-STATIC int
-S_block_most_signals(sigset_t *oldmask)
+static int S_block_most_signals(sigset_t *oldmask)
 {
 	sigset_t newmask;
 
@@ -396,8 +386,7 @@ S_block_most_signals(sigset_t *oldmask)
 }
 
 /* Set the signal mask for this thread to newmask */
-STATIC int
-S_set_sigmask(sigset_t *newmask)
+static int S_set_sigmask(sigset_t *newmask)
 {
 #if defined(VMS)
 	return sigprocmask(SIG_SETMASK, newmask, NULL);
@@ -407,7 +396,7 @@ S_set_sigmask(sigset_t *newmask)
 }
 #endif /* WIN32 */
 
-mthread* create_thread(IV stack_size) {
+static mthread* create_thread(IV stack_size) {
 	mthread* thread;
 	Newxz(thread, 1, mthread);
 	thread->queue = queue_new();
@@ -424,9 +413,9 @@ mthread* create_thread(IV stack_size) {
 
 	S_block_most_signals(&thread->initial_sigmask);
 
-	STATIC pthread_attr_t attr;
-	STATIC int attr_inited = 0;
-	STATIC int attr_joinable = PTHREAD_CREATE_JOINABLE;
+	static pthread_attr_t attr;
+	static int attr_inited = 0;
+	static int attr_joinable = PTHREAD_CREATE_JOINABLE;
 	if (! attr_inited) {
 		pthread_attr_init(&attr);
 		attr_inited = 1;
