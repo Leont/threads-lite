@@ -202,26 +202,28 @@ void queue_delref(message_queue* queue) {
 		MUTEX_UNLOCK(&queue->mutex);
 }
 
-void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
-	message message;
-
+void S_serialize_arguments(pTHX_ message* message, SV** argslist, UV length) {
 	if (length == 1) {
 		SV* arg = *argslist;
 		if (SvROK(arg) && sv_isobject(arg) && sv_isa(arg, "threads::lite")) {
-			message.type = THREAD;
-			message.thread = get_thread_from(arg);
+			message->type = THREAD;
+			message->thread = get_thread_from(arg);
 //			thread_addref(message.thread);
 		}
 		else if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
-			message_store_value(&message, arg);
+			message_store_value(message, arg);
 		else
-			message_set_sv(&message, arg, STRING);
+			message_set_sv(message, arg, STRING);
 	}
 	else {
 		SV* list = sv_2mortal((SV*)av_make(length, argslist));
-		message_store_value(&message, list);
+		message_store_value(message, list);
 	}
+}
 
+#define serialize_arguments(message, argslist, length) S_serialize_arguments(aTHX_ message, argslist, length)
+
+void queue_enqueue_message(message_queue* queue, message* message_) {
 	MUTEX_LOCK(&queue->mutex);
 
 	queue_node* new_entry;
@@ -231,7 +233,7 @@ void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
 	else
 		Newx(new_entry, 1, queue_node);
 
-	Copy(&message, &new_entry->message, 1, message);
+	Copy(message_, &new_entry->message, 1, message);
 	new_entry->next = NULL;
 
 	node_push(&queue->back, new_entry);
@@ -241,8 +243,6 @@ void S_queue_enqueue(pTHX_ message_queue* queue, SV** argslist, UV length) {
 	COND_SIGNAL(&queue->condvar);
 	MUTEX_UNLOCK(&queue->mutex);
 }
-
-#define queue_enqueue(queue, args, length) S_queue_enqueue(aTHX_ queue, args, length)
 
 static MGVTBL table = { 0 };
 
@@ -554,11 +554,10 @@ BOOT:
 
 
 SV*
-_create(object, ...)
+_create(object)
 	SV* object;
 	CODE:
 		mthread* thread = create_thread(65536);
-		queue_enqueue(thread->queue, PL_stack_base + ax + 1, items - 1);
 		RETVAL = object_new(gv_stashpv("threads::lite", FALSE));
 		sv_magicext(SvRV(RETVAL), NULL, PERL_MAGIC_ext, &table, (char*)thread, 0);
 	OUTPUT:
@@ -574,7 +573,9 @@ send(object, ...)
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		message_queue* queue = ((mthread*)magic->mg_ptr)->queue;
-		queue_enqueue(queue, PL_stack_base + ax + 1, items - 1);
+		message message;
+		serialize_arguments(&message, PL_stack_base + ax + 1, items - 1);
+		queue_enqueue_message(queue, &message);
 
 void
 _receive()
