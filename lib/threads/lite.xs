@@ -253,12 +253,50 @@ SV* S_object_new(pTHX_ HV* stash) {
 
 #define object_new(hash) S_object_new(aTHX_ hash)
 
-SV* S_deserialize(pTHX_ message* message) {
+void queue_dequeue_message(message_queue* queue, message* input) {
+	MUTEX_LOCK(&queue->mutex);
+
+	while (!queue->front)
+		COND_WAIT(&queue->condvar, &queue->mutex);
+
+	queue_node* front = node_shift(&queue->front);
+	Copy(&front->message, input, 1, message);
+	node_unshift(&queue->reserve, front);
+
+	if (queue->front == NULL)
+		queue->back = NULL;
+
+	MUTEX_UNLOCK(&queue->mutex);
+}
+
+bool queue_dequeue_message_nb(message_queue* queue, message* input) {
+	MUTEX_LOCK(&queue->mutex);
+
+	if(queue->front) {
+		queue_node* front = node_shift(&queue->front);
+		Copy(&front->message, input, 1, message);
+		node_unshift(&queue->reserve, front);
+
+		if (queue->front == NULL)
+			queue->back = NULL;
+
+		MUTEX_UNLOCK(&queue->mutex);
+		return TRUE;
+	}
+	else {
+		MUTEX_UNLOCK(&queue->mutex);
+		return FALSE;
+	}
+}
+
+void S_push_message(pTHX_ message* message) {
+	dSP;
+
 	switch(message->type) {
 		case STRING:
-			return sv_2mortal(message_get_sv(message));
+			PUSHs(sv_2mortal(message_get_sv(message)));
+			break;
 		case STORABLE: {
-			dSP;
 			ENTER;
 			sv_setiv(save_scalar(gv_fetchpv("Storable::Eval", TRUE | GV_ADDMULTI, SVt_PV)), 1);
 			PUSHMARK(SP);
@@ -267,85 +305,32 @@ SV* S_deserialize(pTHX_ message* message) {
 			call_pv("Storable::thaw", G_SCALAR);
 			SPAGAIN;
 			LEAVE;
-			return SvRV(POPs);
+			AV* values = (AV*)SvRV(POPs);
+
+			if (GIMME_V == G_SCALAR) {
+				SV** ret = av_fetch(values, 0, FALSE);
+				PUSHs(ret ? *ret : &PL_sv_undef);
+			}
+			else if (GIMME_V == G_ARRAY) {
+				UV count = av_len(values) + 1;
+				Copy(AvARRAY(values), SP + 1, count, SV*);
+				SP += count;
+			}
+			break;
 		}
 		case THREAD: {
 			SV* ret = object_new(gv_stashpv("threads::lite", FALSE));
 			sv_magicext(SvRV(ret), NULL, PERL_MAGIC_ext, &table, (char*)message->thread, 0);
-			return ret;
+			PUSHs(sv_2mortal(ret));
 		}
 		default:
 			Perl_croak(aTHX_ "Type %d is not yet implemented", message->type);
 	}
-}
 
-#define deserialize(stored) S_deserialize(aTHX_ stored)
-
-SV* S_queue_dequeue(pTHX_ message_queue* queue) {
-	message message;
-	MUTEX_LOCK(&queue->mutex);
-
-	while (!queue->front)
-		COND_WAIT(&queue->condvar, &queue->mutex);
-
-	queue_node* front = node_shift(&queue->front);
-	Copy(&front->message, &message, 1, message);
-	node_unshift(&queue->reserve, front);
-
-	if (queue->front == NULL)
-		queue->back = NULL;
-
-	MUTEX_UNLOCK(&queue->mutex);
-	return deserialize(&message);
-}
-
-#define queue_dequeue(queue) S_queue_dequeue(aTHX_ queue)
-
-SV* S_queue_dequeue_nb(pTHX_ message_queue* queue) {
-	message message;
-
-	MUTEX_LOCK(&queue->mutex);
-
-	if(queue->front) {
-		queue_node* front = node_shift(&queue->front);
-		Copy(&front->message, &message, 1, message);
-		node_unshift(&queue->reserve, front);
-
-		if (queue->front == NULL)
-			queue->back = NULL;
-
-		MUTEX_UNLOCK(&queue->mutex);
-		return deserialize(&message);
-	}
-	else {
-		MUTEX_UNLOCK(&queue->mutex);
-		return NULL;
-	}
-}
-
-#define queue_dequeue_nb(queue) S_queue_dequeue_nb(aTHX_ queue)
-
-void S_push_queued(pTHX_ SV* values) {
-	dSP;
-	
-	if (SvTYPE(values) == SVt_PVAV) {
-		if (GIMME_V == G_SCALAR) {
-			SV** ret = av_fetch((AV*)values, 0, FALSE);
-			PUSHs(ret ? *ret : &PL_sv_undef);
-		}
-		else if (GIMME_V == G_ARRAY) {
-			UV count = av_len((AV*)values) + 1;
-			Copy(AvARRAY((AV*)values), SP + 1, count, SV*);
-			SP += count;
-		}
-	}
-	else {
-		PUSHs(values);
-	}
 	PUTBACK;
 }
 
-#define push_queued(values) STMT_START { PUTBACK; S_push_queued(aTHX_ values); SPAGAIN; } STMT_END
+#define push_message(values) STMT_START { PUTBACK; S_push_message(aTHX_ (values)); SPAGAIN; } STMT_END
 
 /*
  * Threads implementation itself
@@ -598,8 +583,9 @@ _receive()
 		if (!self_sv)
 			Perl_croak(aTHX_ "Can't find self thread object!");
 		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
-		SV* values = queue_dequeue(thread->queue);
-		push_queued(values);
+		message message;
+		queue_dequeue_message(thread->queue, &message);
+		push_message(&message);
 	
 void
 _receive_nb()
@@ -608,8 +594,8 @@ _receive_nb()
 		if (!self_sv)
 			Perl_croak(aTHX_ "Can't find self thread object!");
 		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
-		SV* values = queue_dequeue_nb(thread->queue);
-		if (values)
-			push_queued(values);
+		message message;
+		if (queue_dequeue_message_nb(thread->queue, &message))
+			 push_message(&message);
 		else
 			XSRETURN_EMPTY;
