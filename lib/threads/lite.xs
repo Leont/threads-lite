@@ -50,19 +50,12 @@ STATIC int S_set_sigmask(sigset_t *);
 
 enum node_type { STRING = 1, STORABLE = 2 };
 
-typedef struct message_queue message_queue;
-typedef struct mthread mthread;
-
 typedef struct {
 	enum node_type type;
-	union {
-		struct {
-			char* ptr;
-			STRLEN length;
-		} string;
-		message_queue* queue;
-		mthread* thread;
-	};
+	struct {
+		char* ptr;
+		STRLEN length;
+	} string;
 } message;
 
 SV* S_message_get_sv(pTHX_ message* message) {
@@ -100,16 +93,14 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 
 #define message_store_value(message, value) S_message_store_value(aTHX_ message, value)
 
-void queue_delref(message_queue*);
-
-void S_message_destroy(pTHX_ message* message) {
+void message_destroy(message* message) {
 	switch(message->type) {
 		case STRING:
 		case STORABLE:
 			Safefree(message->string.ptr);
 			break;
 		default:
-			Perl_warn(aTHX_ "Unknown type in queue\n");
+			warn("Unknown type in queue\n");
 	}
 	Zero(message, 1, message);
 }
@@ -142,14 +133,14 @@ void node_push(queue_node** end, queue_node* new_node) {
 	new_node->next = NULL;
 }
 
-struct message_queue {
+typedef struct {
 	perl_mutex mutex;
 	perl_cond condvar;
 	queue_node* front;
 	queue_node* back;
 	queue_node* reserve;
 	UV refcnt;
-};
+} message_queue;
 
 message_queue* queue_new() {
 	message_queue* queue;
@@ -159,16 +150,6 @@ message_queue* queue_new() {
 	queue->refcnt = 1;
 	return queue;
 }
-
-void* S_get_pointer_from(pTHX_ SV* queue_obj) {
-	MAGIC* magic;
-	if (!SvROK(queue_obj) || !SvMAGICAL(SvRV(queue_obj)) || !(magic = mg_find(SvRV(queue_obj), PERL_MAGIC_ext)))
-		Perl_croak(aTHX_ "Something is very wrong, this is not a magic object\n");
-	return (void*)magic->mg_ptr;
-}
-
-#define get_pointer_from(obj) S_get_pointer_from(aTHX_ obj)
-#define get_thread_from(obj) (mthread*)get_pointer_from(obj)
 
 void queue_addref(message_queue* queue) {
 	MUTEX_LOCK(&queue->mutex);
@@ -184,7 +165,7 @@ void queue_delref(message_queue* queue) {
 		queue_node *current, *next;
 		for (current = queue->front; current; current = next) {
 			next = current->next;
-			message_destroy(current->message);
+			message_destroy(&current->message);
 			Safefree(current);
 		}
 		for (current = queue->reserve; current; current = next) {
@@ -237,11 +218,6 @@ void queue_enqueue_message(message_queue* queue, message* message_) {
 }
 
 static MGVTBL table = { 0 };
-
-SV* S_object_new(pTHX_ HV* stash) {
-}
-
-#define object_new(hash) S_object_new(aTHX_ hash)
 
 void queue_dequeue_message(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
@@ -327,8 +303,7 @@ static struct {
 	UV count;
 } global;
 
-struct mthread {
-	PerlInterpreter *interp;    /* The threads interpreter */
+typedef struct {
 	message_queue* queue;
 
 #ifdef WIN32
@@ -338,9 +313,8 @@ struct mthread {
 	pthread_t thr;              /* OS's handle for the thread */
 	sigset_t initial_sigmask;   /* Thread wakes up with signals blocked */
 #endif
-	IV stack_size;
 	UV refcnt;
-};
+} mthread;
 
 void boot_DynaLoader(pTHX_ CV* cv);
 
@@ -358,18 +332,17 @@ void load_modules(SV** start, SV** end) {
 		load_module(PERL_LOADMOD_DENY, *current, NULL, NULL);
 }
 
-#define my_perl thread->interp
 void* run_thread(void* arg) {
 	MUTEX_LOCK(&global.lock);
 	++global.count;
 	MUTEX_UNLOCK(&global.lock);
 
 	mthread* thread = (mthread*) arg;
-	thread->interp = perl_alloc();
-	perl_construct(thread->interp);
+	PerlInterpreter* my_perl = perl_alloc();
+	perl_construct(my_perl);
 	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
 
-	perl_parse(thread->interp, xs_init, argc, (char**)argv, NULL);
+	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
 	S_set_sigmask(&thread->initial_sigmask);
 
 	SV* thread_sv = newSV_type(SVt_PV);
@@ -418,7 +391,6 @@ void* run_thread(void* arg) {
 	MUTEX_UNLOCK(&global.lock);
 	return NULL;
 }
-#undef my_perl
 
 static int S_mthread_hook(pTHX) {
 	MUTEX_LOCK(&global.lock);
@@ -471,10 +443,9 @@ mthread* create_thread(IV stack_size) {
 	mthread* thread;
 	Newxz(thread, 1, mthread);
 	thread->queue = queue_new();
-	thread->stack_size = stack_size;
 #ifdef WIN32
 	thread->handle = CreateThread(NULL,
-								  (DWORD)thread->stack_size,
+								  (DWORD)stack_size,
 								  run_thread,
 								  (LPVOID)thread,
 								  STACK_SIZE_PARAM_IS_A_RESERVATION,
@@ -500,8 +471,8 @@ mthread* create_thread(IV stack_size) {
 
 #  ifdef _POSIX_THREAD_ATTR_STACKSIZE
 	/* Set thread's stack size */
-	if (thread->stack_size > 0) {
-		rc_stack_size = pthread_attr_setstacksize(&attr, (size_t)thread->stack_size);
+	if (stack_size > 0) {
+		rc_stack_size = pthread_attr_setstacksize(&attr, (size_t)stack_size);
 	}
 #  endif
 
@@ -529,8 +500,6 @@ MODULE = threads::lite             PACKAGE = threads::lite
 PROTOTYPES: DISABLED
 
 BOOT:
-    PL_threadhook = &S_mthread_hook;
-
 	if (!global.inited) {
 		MUTEX_INIT(&global.lock);
 		global.inited = TRUE;
