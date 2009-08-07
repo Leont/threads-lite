@@ -5,7 +5,6 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use threads::lite::queue;
 use base qw/DynaLoader Exporter/;
 use Storable 2.05;
 
