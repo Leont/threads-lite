@@ -58,12 +58,6 @@ sub receive_nb {
 	return;
 }
 
-sub _run {
-	warn "# Running!\n";
-	my @args = threads::lite::receive();
-	return;
-}
-
 sub STORABLE_freeze {
 	require Carp;
 	Carp::croak 'Can\'t freeze thread queue';
