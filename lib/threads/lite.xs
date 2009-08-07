@@ -17,7 +17,7 @@
 
 #ifdef WIN32
 #  include <windows.h>
-   /* Supposed to be in Winbase.h */
+/* Supposed to be in Winbase.h */
 #  ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
 #    define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 #  endif
@@ -93,6 +93,60 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 
 #define message_store_value(message, value) S_message_store_value(aTHX_ message, value)
 
+void S_message_pull_stack(pTHX_ message* message, SV** argslist, UV length) {
+	if (length == 1) {
+		SV* arg = *argslist;
+		if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
+			message_store_value(message, arg);
+		else
+			message_set_sv(message, arg, STRING);
+	}
+	else {
+		SV* list = sv_2mortal((SV*)av_make(length, argslist));
+		message_store_value(message, list);
+	}
+}
+
+#define message_pull_stack(message, argslist, length) S_message_pull_stack(aTHX_ message, argslist, length)
+
+void S_message_push_stack(pTHX_ message* message) {
+	dSP;
+
+	switch(message->type) {
+		case STRING:
+			PUSHs(sv_2mortal(message_get_sv(message)));
+			break;
+		case STORABLE: {
+			ENTER;
+			sv_setiv(save_scalar(gv_fetchpv("Storable::Eval", TRUE | GV_ADDMULTI, SVt_PV)), 1);
+			PUSHMARK(SP);
+			XPUSHs(sv_2mortal(message_get_sv(message)));
+			PUTBACK;
+			call_pv("Storable::thaw", G_SCALAR);
+			SPAGAIN;
+			LEAVE;
+			AV* values = (AV*)SvRV(POPs);
+
+			if (GIMME_V == G_SCALAR) {
+				SV** ret = av_fetch(values, 0, FALSE);
+				PUSHs(ret ? *ret : &PL_sv_undef);
+			}
+			else if (GIMME_V == G_ARRAY) {
+				UV count = av_len(values) + 1;
+				Copy(AvARRAY(values), SP + 1, count, SV*);
+				SP += count;
+			}
+			break;
+		}
+		default:
+			Perl_croak(aTHX_ "Type %d is not yet implemented", message->type);
+	}
+
+	PUTBACK;
+}
+
+#define message_push_stack(values) STMT_START { PUTBACK; S_message_push_stack(aTHX_ (values)); SPAGAIN; } STMT_END
+
 void message_destroy(message* message) {
 	switch(message->type) {
 		case STRING:
@@ -149,23 +203,7 @@ message_queue* queue_new() {
 	return queue;
 }
 
-void S_serialize_arguments(pTHX_ message* message, SV** argslist, UV length) {
-	if (length == 1) {
-		SV* arg = *argslist;
-		if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
-			message_store_value(message, arg);
-		else
-			message_set_sv(message, arg, STRING);
-	}
-	else {
-		SV* list = sv_2mortal((SV*)av_make(length, argslist));
-		message_store_value(message, list);
-	}
-}
-
-#define serialize_arguments(message, argslist, length) S_serialize_arguments(aTHX_ message, argslist, length)
-
-void queue_enqueue_message(message_queue* queue, message* message_) {
+void queue_enqueue(message_queue* queue, message* message_) {
 	MUTEX_LOCK(&queue->mutex);
 
 	queue_node* new_entry;
@@ -188,7 +226,7 @@ void queue_enqueue_message(message_queue* queue, message* message_) {
 
 static MGVTBL table = { 0 };
 
-void queue_dequeue_message(message_queue* queue, message* input) {
+void queue_dequeue(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
 
 	while (!queue->front)
@@ -204,7 +242,7 @@ void queue_dequeue_message(message_queue* queue, message* input) {
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-bool queue_dequeue_message_nb(message_queue* queue, message* input) {
+bool queue_dequeue_nb(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
 
 	if(queue->front) {
@@ -223,44 +261,6 @@ bool queue_dequeue_message_nb(message_queue* queue, message* input) {
 		return FALSE;
 	}
 }
-
-void S_push_message(pTHX_ message* message) {
-	dSP;
-
-	switch(message->type) {
-		case STRING:
-			PUSHs(sv_2mortal(message_get_sv(message)));
-			break;
-		case STORABLE: {
-			ENTER;
-			sv_setiv(save_scalar(gv_fetchpv("Storable::Eval", TRUE | GV_ADDMULTI, SVt_PV)), 1);
-			PUSHMARK(SP);
-			XPUSHs(sv_2mortal(message_get_sv(message)));
-			PUTBACK;
-			call_pv("Storable::thaw", G_SCALAR);
-			SPAGAIN;
-			LEAVE;
-			AV* values = (AV*)SvRV(POPs);
-
-			if (GIMME_V == G_SCALAR) {
-				SV** ret = av_fetch(values, 0, FALSE);
-				PUSHs(ret ? *ret : &PL_sv_undef);
-			}
-			else if (GIMME_V == G_ARRAY) {
-				UV count = av_len(values) + 1;
-				Copy(AvARRAY(values), SP + 1, count, SV*);
-				SP += count;
-			}
-			break;
-		}
-		default:
-			Perl_croak(aTHX_ "Type %d is not yet implemented", message->type);
-	}
-
-	PUTBACK;
-}
-
-#define push_message(values) STMT_START { PUTBACK; S_push_message(aTHX_ (values)); SPAGAIN; } STMT_END
 
 /*
  * Threads implementation itself
@@ -419,8 +419,8 @@ mthread* create_thread(IV stack_size) {
 								  STACK_SIZE_PARAM_IS_A_RESERVATION,
 								  &thread->thr);
 #else
-    int rc_stack_size = 0;
-    int rc_thread_create = 0;
+	int rc_stack_size = 0;
+	int rc_thread_create = 0;
 
 	S_block_most_signals(&thread->initial_sigmask);
 
@@ -493,8 +493,8 @@ _receive()
 			Perl_croak(aTHX_ "Can't find self thread object!");
 		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
 		message message;
-		queue_dequeue_message(thread->queue, &message);
-		push_message(&message);
+		queue_dequeue(thread->queue, &message);
+		message_push_stack(&message);
 	
 void
 _receive_nb()
@@ -504,8 +504,8 @@ _receive_nb()
 			Perl_croak(aTHX_ "Can't find self thread object!");
 		mthread* thread = (mthread*)SvPV_nolen(*self_sv);
 		message message;
-		if (queue_dequeue_message_nb(thread->queue, &message))
-			 push_message(&message);
+		if (queue_dequeue_nb(thread->queue, &message))
+			 message_push_stack(&message);
 		else
 			XSRETURN_EMPTY;
 
@@ -523,6 +523,6 @@ send(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		message_queue* queue = (INT2PTR(mthread*, SvUV(SvRV(object))))->queue;
 		message message;
-		serialize_arguments(&message, PL_stack_base + ax + 1, items - 1);
-		queue_enqueue_message(queue, &message);
+		message_pull_stack(&message, PL_stack_base + ax + 1, items - 1);
+		queue_enqueue(queue, &message);
 
