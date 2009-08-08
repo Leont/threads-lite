@@ -93,21 +93,21 @@ static void S_message_store_value(pTHX_ message* message, SV* value) {
 
 #define message_store_value(message, value) S_message_store_value(aTHX_ message, value)
 
-static void S_message_pull_stack(pTHX_ message* message, SV** argslist, UV length) {
-	if (length == 1) {
-		SV* arg = *argslist;
-		if (!SvOK(arg) || SvROK(arg) || (SvPOK(arg) && SvUTF8(arg)))
-			message_store_value(message, arg);
+static void S_message_pull_stack(pTHX_ message* message) {
+	dSP; dMARK;
+	if (SP == MARK) {
+		if (!SvOK(*MARK) || SvROK(*MARK) || (SvPOK(*MARK) && SvUTF8(*MARK)))
+			message_store_value(message, *MARK);
 		else
-			message_set_sv(message, arg, STRING);
+			message_set_sv(message, *MARK, STRING);
 	}
 	else {
-		SV* list = sv_2mortal((SV*)av_make(length, argslist));
+		SV* list = sv_2mortal((SV*)av_make(SP - MARK + 1, MARK));
 		message_store_value(message, list);
 	}
 }
 
-#define message_pull_stack(message, argslist, length) S_message_pull_stack(aTHX_ message, argslist, length)
+#define message_pull_stack(message) STMT_START { PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END
 
 static void S_message_push_stack(pTHX_ message* message) {
 	dSP;
@@ -512,6 +512,7 @@ send(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		message_queue* queue = (INT2PTR(mthread*, SvUV(SvRV(object))))->queue;
 		message message;
-		message_pull_stack(&message, PL_stack_base + ax + 1, items - 1);
+		PUSHMARK(MARK + 2);
+		message_pull_stack(&message);
 		queue_enqueue(queue, &message);
 
