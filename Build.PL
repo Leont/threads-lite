@@ -15,7 +15,7 @@ my $builder = Module::Build->new(
         'Test::More' => 0,
     },
 	requires            => {
-		perl            => 5.008,
+		perl            => 5.010,
 		Storable        => 2.05,
 	},
     add_to_cleanup      => [ 'threads-lite-*' ],

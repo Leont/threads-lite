@@ -5,6 +5,8 @@ use warnings;
 
 our $VERSION = '0.01';
 
+use 5.010;
+
 use base qw/DynaLoader Exporter/;
 use Storable 2.05;
 
@@ -21,8 +23,9 @@ my @message_cache;
 
 sub _deep_equals {
 	my ($message, $criterion) = @_;
+	return if $#{$message} < $#{$criterion};
 	for my $i (0..$#{$criterion}) {
-		return if $#{$message} < $i or $message->[$i] ne $criterion->[$i];
+		return if $message->[$i] !~~ $criterion->[$i];
 	}
 	return 1;
 }
