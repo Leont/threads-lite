@@ -12,5 +12,5 @@ pm_to_blib*
 .lwpcookies
 threads-lite-*
 cover_db
-*.c
+lib/threads/*.c
 *.o
