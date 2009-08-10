@@ -30,6 +30,23 @@ sub _deep_equals {
 	return 1;
 }
 
+sub _return_elements {
+	return wantarray ? @_ : $_[0];
+}
+
+sub _match_mailbox {
+	my ($criterion) = @_;
+	MESSAGE:
+	for my $i (0..$#message_cache) {
+		my $message = $message_cache[$i];
+		for my $j (0..$#{$criterion}) {
+			next MESSAGE if $message->[$j] !~~ $criterion->[$j];
+		}
+		return _return_elements(@{ splice @message_cache, $i, 1 })
+	}
+	return;
+}
+
 sub create {
 	my ($class, @args) = @_;
 	my $thread = $class->_create;
@@ -41,24 +58,48 @@ sub create {
 
 sub receive {
 	my @args = @_;
-	for my $i (0..$#message_cache) {
-		return splice @message_cache, $i, 1 if _deep_equals($message_cache[$i], \@args);
+	if (my @ret = _match_mailbox(\@args)) {
+		return @ret;
 	}
 	while (my @next = _receive) {
-		return wantarray ? @next : $next[0] if _deep_equals(\@next, \@args);
+		return _return_elements(@next) if _deep_equals(\@next, \@args);
 		push @message_cache, \@next;
 	}
 }
 
 sub receive_nb {
 	my @args = @_;
-	for my $i (0..$#message_cache) {
-		return splice @message_cache, $i, 1 if _deep_equals($message_cache[$i], \@args);
+	if (my @ret = _match_mailbox(\@args)) {
+		return @ret;
 	}
 	return if not my @next = _receive_nb;
-	return wantarray ? @next : $next[0] if _deep_equals(\@next, \@args);
+	return _return_elements(@next) if _deep_equals(\@next, \@args);
 	push @message_cache, \@next;
 	return;
+}
+
+sub receive_table {
+	my @args = @_;
+	my @table;
+
+	push @table, [ splice @args, 0, 2 ] while @args > 2;
+
+	for my $pair (@table) {
+		if (my @ret = _match_mailbox($pair->[0])) {
+			$pair->[1]->(_return_elements(@ret)) if defined $pair->[1];
+			return @ret;
+		}
+	}
+	while (my @next = _receive) {
+		for my $pair (@table) {
+			if (_deep_equals(\@next, $pair->[0])) {
+				my @ret = _return_elements(@next);
+				$pair->[1]->(@ret) if defined $pair->[1];
+				return @ret;
+			}
+			push @message_cache, \@next;
+		}
+	}
 }
 
 1;
@@ -75,7 +116,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by thread queues (channal). It thus facilitates a messsage passing style of multi-threading.
+This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by thread queues (channel). It thus facilitates a messsage passing style of multi-threading.
 
 =head1 FUNCTIONS
 
@@ -86,6 +127,8 @@ This module implements threads for perl. One crucial difference with normal thre
 =head2 receive
 
 =head2 receive_nb
+
+=head2 receive_table
 
 =head1 AUTHOR
 
