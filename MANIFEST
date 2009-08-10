@@ -2,7 +2,6 @@ Build.PL
 Changes
 lib/threads/lite.pm
 lib/threads/lite.xs
-lib/threads/lite/queue.pm
 MANIFEST
 README
 t/00-load.t
