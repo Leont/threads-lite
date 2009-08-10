@@ -25,7 +25,7 @@ sub _deep_equals {
 	my ($message, $criterion) = @_;
 	return if $#{$message} < $#{$criterion};
 	for my $i (0..$#{$criterion}) {
-		return if $message->[$i] !~~ $criterion->[$i];
+		return if not $message->[$i] ~~ $criterion->[$i];
 	}
 	return 1;
 }
@@ -36,24 +36,29 @@ sub _return_elements {
 
 sub _match_mailbox {
 	my ($criterion) = @_;
-	MESSAGE:
 	for my $i (0..$#message_cache) {
-		my $message = $message_cache[$i];
-		for my $j (0..$#{$criterion}) {
-			next MESSAGE if $message->[$j] !~~ $criterion->[$j];
-		}
-		return _return_elements(@{ splice @message_cache, $i, 1 })
+		next if not _deep_equals($message_cache[$i], $criterion);
+		return @{ splice @message_cache, $i, 1 };
 	}
 	return;
 }
 
+sub _get_runtime {
+	my $ret;
+	1 while (receive_table(
+		[ 'load' ] => \&_load_module,
+		[ 'run'  ] => sub { $ret = $_[1] },
+		) ne 'run');
+	return $ret;
+}
 
 sub spawn {
-	my ($class, $options, @args) = @_;
+	my ($class, $options, $args) = @_;
 	my $thread = $class->_create;
-	for my $arg (@args) {
-		$thread->send(@{$arg});
+	for my $module (@{ $options->{modules} }) {
+		$thread->send(load => $module);
 	}
+	$thread->send(run => $args);
 	return $thread;
 }
 
@@ -83,20 +88,19 @@ sub receive_table {
 	my @args = @_;
 	my @table;
 
-	push @table, [ splice @args, 0, 2 ] while @args > 2;
+	push @table, [ splice @args, 0, 2 ] while @args >= 2;
 
 	for my $pair (@table) {
 		if (my @ret = _match_mailbox($pair->[0])) {
-			$pair->[1]->(_return_elements(@ret)) if defined $pair->[1];
-			return @ret;
+			$pair->[1]->(@ret) if defined $pair->[1];
+			return _return_elements(@ret);
 		}
 	}
 	while (my @next = _receive) {
 		for my $pair (@table) {
 			if (_deep_equals(\@next, $pair->[0])) {
-				my @ret = _return_elements(@next);
-				$pair->[1]->(@ret) if defined $pair->[1];
-				return @ret;
+				$pair->[1]->(@next) if defined $pair->[1];
+				return _return_elements(@next);
 			}
 			push @message_cache, \@next;
 		}

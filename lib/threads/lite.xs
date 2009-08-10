@@ -292,12 +292,6 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
-static void load_modules(SV** start, SV** end) {
-	SV** current;
-	for(current = start; current <= end; ++current)
-		load_module(PERL_LOADMOD_DENY, *current, NULL, NULL);
-}
-
 static void* run_thread(void* arg) {
 	MUTEX_LOCK(&global.lock);
 	++global.count;
@@ -319,35 +313,19 @@ static void* run_thread(void* arg) {
 	SvREADONLY_on(thread_sv);
 	hv_store(PL_modglobal, "thread::lite::self", 18, thread_sv, 0);
 
-	load_module(PERL_LOADMOD_DENY, newSVpv("threads::lite", 0), NULL, NULL);
+	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
 
-	dSP;
-	SV** oldsp = SP;
+	dSP; dAXMARK;
 	ENTER;
 
-	SAVETMPS;
 	PUSHMARK(SP);
-	PUSHs(sv_2mortal(newSVpvn("_init", 5)));
-	PUTBACK;
-	call_pv("threads::lite::receive_nb", G_ARRAY);
-	SPAGAIN;
-	load_modules(oldsp + 1, SP);
-	FREETMPS;
-
-	SP = oldsp;
-
-	PUSHMARK(SP);
-	PUSHs(sv_2mortal(newSVpvn("_start", 6)));
-	PUTBACK;
-	call_pv("threads::lite::receive", G_ARRAY);
+	call_pv("threads::lite::_get_runtime", G_SCALAR);
 	SPAGAIN;
 
-	if (SP - oldsp < 2)
-		Perl_croak(aTHX_ "No sub given to start");
 	SV* call = POPs;
 	PUSHMARK(SP);
 	PUTBACK;
-	call_sv(call, G_VOID|G_DISCARD);
+	call_sv(call, G_VOID|G_DISCARD|G_EVAL);
 	FREETMPS;
 
 	LEAVE;
@@ -497,6 +475,12 @@ _receive_nb()
 			 message_push_stack(&message);
 		else
 			XSRETURN_EMPTY;
+
+void
+_load_module(module)
+	SV* module;
+	CODE:
+		load_module(PERL_LOADMOD_NOIMPORT, module, NULL, NULL);
 
 MODULE = threads::lite             PACKAGE = threads::lite::tid
 
