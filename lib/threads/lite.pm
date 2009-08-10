@@ -47,8 +47,9 @@ sub _match_mailbox {
 	return;
 }
 
-sub create {
-	my ($class, @args) = @_;
+
+sub spawn {
+	my ($class, $options, @args) = @_;
 	my $thread = $class->_create;
 	for my $arg (@args) {
 		$thread->send(@{$arg});
@@ -120,7 +121,7 @@ This module implements threads for perl. One crucial difference with normal thre
 
 =head1 FUNCTIONS
 
-=head2 create
+=head2 spawn
 
 =head2 send
 
