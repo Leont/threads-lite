@@ -98,14 +98,16 @@ void S_message_push_stack(pTHX_ message* message) {
 
 void message_destroy(message* message) {
 	switch(message->type) {
+		case EMPTY:
+			break;
 		case STRING:
 		case STORABLE:
 			Safefree(message->string.ptr);
+			Zero(message, 1, message);
 			break;
 		default:
 			warn("Unknown type in queue\n");
 	}
-	Zero(message, 1, message);
 }
 
 /*
@@ -136,16 +138,24 @@ static void node_push(queue_node** end, queue_node* new_node) {
 	new_node->next = NULL;
 }
 
-message_queue* queue_new() {
-	message_queue* queue;
-	Newxz(queue, 1, message_queue);
-	MUTEX_INIT(&queue->mutex);
-	COND_INIT(&queue->condvar);
-	return queue;
+static void node_destroy(struct queue_node* current) {
+	while (current != NULL) {
+		struct queue_node* next = current->next;
+		message_destroy(&current->message);
+		Safefree(current);
+		current = next;
+	}
 }
 
-void queue_enqueue(message_queue* queue, message* message_) {
+void queue_init(message_queue* queue) {
+	MUTEX_INIT(&queue->mutex);
+	COND_INIT(&queue->condvar);
+}
+
+void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
+	if (external_lock)
+		MUTEX_UNLOCK(external_lock);
 
 	queue_node* new_entry;
 	if (queue->reserve) {
@@ -173,6 +183,7 @@ void queue_dequeue(message_queue* queue, message* input) {
 
 	queue_node* front = node_shift(&queue->front);
 	Copy(&front->message, input, 1, message);
+	Zero(&front->message, 1, message);
 	node_unshift(&queue->reserve, front);
 
 	if (queue->front == NULL)
@@ -184,9 +195,10 @@ void queue_dequeue(message_queue* queue, message* input) {
 bool queue_dequeue_nb(message_queue* queue, message* input) {
 	MUTEX_LOCK(&queue->mutex);
 
-	if(queue->front) {
+	if (queue->front) {
 		queue_node* front = node_shift(&queue->front);
 		Copy(&front->message, input, 1, message);
+		Zero(&front->message, 1, message);
 		node_unshift(&queue->reserve, front);
 
 		if (queue->front == NULL)
@@ -199,4 +211,14 @@ bool queue_dequeue_nb(message_queue* queue, message* input) {
 		MUTEX_UNLOCK(&queue->mutex);
 		return FALSE;
 	}
+}
+
+void queue_destroy(message_queue* queue) {
+	MUTEX_LOCK(&queue->mutex);
+	queue_node* next;
+	node_destroy(queue->front);
+	node_destroy(queue->reserve);
+	COND_DESTROY(&queue->condvar);
+	MUTEX_UNLOCK(&queue->mutex);
+	MUTEX_DESTROY(&queue->mutex);
 }

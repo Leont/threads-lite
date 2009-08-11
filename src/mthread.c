@@ -64,6 +64,7 @@ static int argc = sizeof argv / sizeof *argv;
 
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
+	thread->status = RUNNING;
 	PerlInterpreter* my_perl = perl_alloc();
 	perl_construct(my_perl);
 	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
@@ -81,8 +82,7 @@ static void* run_thread(void* arg) {
 
 	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
 
-	dSP; dAXMARK;
-	ENTER;
+	dSP;
 
 	PUSHMARK(SP);
 	call_pv("threads::lite::_get_runtime", G_SCALAR);
@@ -92,11 +92,12 @@ static void* run_thread(void* arg) {
 	PUSHMARK(SP);
 	PUTBACK;
 	call_sv(call, G_VOID|G_DISCARD|G_EVAL);
-	FREETMPS;
 
-	LEAVE;
+	perl_destruct(my_perl);
+	perl_free(my_perl);
 
-	mthread_finish(thread);
+	mthread_destroy(thread);
+	Safefree(thread);
 	return NULL;
 }
 
@@ -140,7 +141,6 @@ static int S_set_sigmask(sigset_t *newmask)
 
 mthread* create_thread(IV stack_size) {
 	mthread* thread = mthread_alloc();
-	thread->queue = queue_new();
 #ifdef WIN32
 	thread->handle = CreateThread(NULL,
 								  (DWORD)stack_size,

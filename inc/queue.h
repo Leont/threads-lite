@@ -1,4 +1,4 @@
-enum node_type { STRING = 1, STORABLE = 2 };
+enum node_type { EMPTY = 0, STRING = 1, STORABLE = 2 };
 
 typedef struct {
 	enum node_type type;
@@ -25,7 +25,8 @@ void S_message_pull_stack(pTHX_ message*);
 #define message_pull_stack(message) STMT_START { PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END
 
 
-message_queue* queue_new();
-void queue_enqueue(message_queue* queue, message* message);
+void queue_init(message_queue*);
+void queue_destroy(message_queue*);
+void queue_enqueue(message_queue* queue, message* message, perl_mutex* lock);
 void queue_dequeue(message_queue* queue, message* message);
 bool queue_dequeue_nb(message_queue* queue, message* message);
