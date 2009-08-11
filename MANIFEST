@@ -1,9 +1,15 @@
 Build.PL
 Changes
+inc/mthread.h
+inc/queue.h
+inc/resources.h
 lib/threads/lite.pm
 lib/threads/lite.xs
-MANIFEST
+MANIFEST			This list of files
 README
+src/mthread.c
+src/queue.c
+src/resources.c
 t/00-load.t
 t/10-basics.t
 t/pod-coverage.t

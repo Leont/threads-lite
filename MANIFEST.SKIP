@@ -10,5 +10,5 @@
 threads-lite-.*
 ^\.git
 ^lib/.*\.c$
-^lib/.*\.o$
+.*\.o$
 ^.ignore
