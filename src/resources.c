@@ -1,6 +1,7 @@
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
+#define NO_XSLOCKS
 #include "XSUB.h"
 
 #include "queue.h"
@@ -23,7 +24,13 @@ void global_init() {
 		inited = TRUE;
 		Newxz(threads, 8, mthread*);
 		allocated = 8;
-		mthread_alloc();
+		mthread* ret = mthread_alloc();
+		ret->status = DETACHED;
+#  ifdef WIN32
+		ret->thr = GetCurrentThreadId();
+#  else
+		ret->thr = pthread_self();
+#  endif
 	}
 }
 
@@ -47,12 +54,59 @@ void mthread_destroy(mthread* thread) {
 	queue_destroy(&thread->queue);
 }
 
-bool thread_send(UV thread_id, message* message) {
+static mthread* S_get_thread(pTHX_ UV thread_id) {
+	if (thread_id >= current || threads[thread_id] == NULL)
+		Perl_croak(aTHX_  "Thread "UVuf" doesn't exist", thread_id);
+	return threads[thread_id];
+}
+
+#define get_thread(id) S_get_thread(aTHX_ id)
+
+#define THREAD_TRY \
+	XCPT_TRY_START
+
+#define THREAD_FINALLY(undo) \
+	XCPT_TRY_END;\
+	undo;\
+	XCPT_CATCH { XCPT_RETHROW; }
+
+void S_thread_send(pTHX_ UV thread_id, message* message) {
+	dXCPT;
+
 	MUTEX_LOCK(&lock);
-	bool ret = thread_id < current && threads[thread_id] != NULL;
-	if (ret)
-		queue_enqueue(&threads[thread_id]->queue, message, &lock);
-	else
-		MUTEX_UNLOCK(&lock);
+	THREAD_TRY {
+		mthread* thread = get_thread(thread_id);
+		queue_enqueue(&thread->queue, message, &lock);
+	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
+}
+
+#define self thr
+
+AV* S_thread_join(pTHX_ UV thread_id) {
+	dXCPT;
+	AV* ret;
+
+	MUTEX_LOCK(&lock);
+	THREAD_TRY {
+		mthread* thread = get_thread(thread_id);
+		if (thread->status != RUNNING)
+			Perl_croak(aTHX_ "Thread "UVuf" is not joinable", thread_id);
+		JOIN(thread, ret);
+	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
 	return ret;
+}
+
+void S_thread_detach(pTHX_ UV thread_id) {
+	dXCPT;
+
+	MUTEX_LOCK(&lock);
+	THREAD_TRY {
+		mthread* thread = get_thread(thread_id);
+		if (thread->status != RUNNING)
+			Perl_croak(aTHX_ "Thread "UVuf" is not detachable", thread_id);
+		MUTEX_LOCK(&thread->mutex); //XXX small race condition
+		DETACH(thread);
+		thread->status = DETACHED;
+		MUTEX_UNLOCK(&thread->mutex);
+	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
 }

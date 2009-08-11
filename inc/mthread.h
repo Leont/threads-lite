@@ -2,6 +2,7 @@ typedef struct mthread {
 	UV thread_id;
 	enum { INITING, RUNNING, DETACHED, FINISHED } status;
 	message_queue queue;
+	perl_mutex mutex;
 #ifdef WIN32
 	DWORD  thr;                 /* OS's idea if thread id */
 	HANDLE handle;              /* OS's waitable handle */
