@@ -16,11 +16,11 @@ perl_mutex lock;
 bool inited = 0;
 UV current = 0;
 UV allocated = 0;
-struct mthread** threads = NULL;
+mthread** threads = NULL;
 
 void global_init() {
 	if (!inited) {
-		MUTEX_INIT(&lock);
+		MUTEX_INIT(&thread_lock);
 		inited = TRUE;
 		Newxz(threads, 8, mthread*);
 		allocated = 8;
@@ -31,6 +31,7 @@ void global_init() {
 #  else
 		ret->thr = pthread_self();
 #  endif
+		queue_init(&system_queue);
 	}
 }
 
@@ -38,19 +39,19 @@ mthread* mthread_alloc() {
 	mthread* ret;
 	Newxz(ret, 1, mthread);
 	queue_init(&ret->queue);
-	MUTEX_LOCK(&lock);
+	MUTEX_LOCK(&thread_lock);
 	ret->thread_id = current;
 	if (current == allocated)
 		Renew(threads, allocated *=2, mthread*);
 	threads[current++] = ret;
-	MUTEX_UNLOCK(&lock);
+	MUTEX_UNLOCK(&thread_lock);
 	return ret;
 }
 
 void mthread_destroy(mthread* thread) {
-	MUTEX_LOCK(&lock);
+	MUTEX_LOCK(&thread_lock);
 	threads[thread->thread_id] = NULL;
-	MUTEX_UNLOCK(&lock);
+	MUTEX_UNLOCK(&thread_lock);
 	queue_destroy(&thread->queue);
 }
 
@@ -73,11 +74,11 @@ static mthread* S_get_thread(pTHX_ UV thread_id) {
 void S_thread_send(pTHX_ UV thread_id, message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&lock);
+	MUTEX_LOCK(&thread_lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
-		queue_enqueue(&thread->queue, message, &lock);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
+		queue_enqueue(&thread->queue, message, &thread_lock);
+	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
 }
 
 #define self thr
@@ -86,20 +87,20 @@ AV* S_thread_join(pTHX_ UV thread_id) {
 	dXCPT;
 	AV* ret;
 
-	MUTEX_LOCK(&lock);
+	MUTEX_LOCK(&thread_lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
 		if (thread->status != RUNNING)
 			Perl_croak(aTHX_ "Thread "UVuf" is not joinable", thread_id);
 		JOIN(thread, ret);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
+	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
 	return ret;
 }
 
 void S_thread_detach(pTHX_ UV thread_id) {
 	dXCPT;
 
-	MUTEX_LOCK(&lock);
+	MUTEX_LOCK(&thread_lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
 		if (thread->status != RUNNING)
@@ -108,5 +109,5 @@ void S_thread_detach(pTHX_ UV thread_id) {
 		DETACH(thread);
 		thread->status = DETACHED;
 		MUTEX_UNLOCK(&thread->mutex);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&lock) );
+	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
 }
