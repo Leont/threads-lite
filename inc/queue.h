@@ -28,5 +28,8 @@ void S_message_pull_stack(pTHX_ message*);
 void queue_init(message_queue*);
 void queue_destroy(message_queue*);
 void queue_enqueue(message_queue* queue, message* message, perl_mutex* lock);
+void S_queue_enqueue_copy(pTHX_ message_queue* queue, message* message, perl_mutex* lock);
 void queue_dequeue(message_queue* queue, message* message);
 bool queue_dequeue_nb(message_queue* queue, message* message);
+
+#define queue_enqueue_copy(queue, message, lock) S_queue_enqueue_copy(aTHX_ queue, message, lock)

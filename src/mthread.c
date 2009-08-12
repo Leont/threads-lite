@@ -62,16 +62,7 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
-static void* run_thread(void* arg) {
-	mthread* thread = (mthread*) arg;
-	thread->status = RUNNING;
-	PerlInterpreter* my_perl = perl_alloc();
-	perl_construct(my_perl);
-	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
-
-	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
-	S_set_sigmask(&thread->initial_sigmask);
-
+void S_store_self(pTHX_ mthread* thread) {
 	SV* thread_sv = newSV_type(SVt_PV);
 	SvPVX(thread_sv) = (char*) thread;
 	SvCUR(thread_sv) = sizeof(mthread);
@@ -79,6 +70,19 @@ static void* run_thread(void* arg) {
 	SvPOK_only(thread_sv);
 	SvREADONLY_on(thread_sv);
 	hv_store(PL_modglobal, "thread::lite::self", 18, thread_sv, 0);
+
+}
+
+static void* run_thread(void* arg) {
+	mthread* thread = (mthread*) arg;
+	PerlInterpreter* my_perl = perl_alloc();
+	perl_construct(my_perl);
+	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
+
+	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
+	S_set_sigmask(&thread->initial_sigmask);
+
+	store_self(thread);
 
 	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
 
@@ -89,9 +93,24 @@ static void* run_thread(void* arg) {
 	SPAGAIN;
 
 	SV* call = POPs;
+	SV* status = sv_2mortal(newSVpvn("normal", 6));
+	PUSHs(status);
+	SV** old = SP;
+
 	PUSHMARK(SP);
 	PUTBACK;
-	call_sv(call, G_VOID|G_DISCARD|G_EVAL);
+	call_sv(call, G_ARRAY|G_EVAL);
+	SPAGAIN;
+
+	message message;
+	if (SvTRUE(ERRSV)) {
+		sv_setpvn(status, "error", 5);
+		PUSHs(ERRSV);
+	}
+	PUSHMARK(old);
+	message_pull_stack(&message);
+	send_listeners(thread, &message);
+	message_destroy(&message);
 
 	perl_destruct(my_perl);
 	perl_free(my_perl);
@@ -139,8 +158,8 @@ static int S_set_sigmask(sigset_t *newmask)
 }
 #endif /* WIN32 */
 
-mthread* create_thread(IV stack_size) {
-	mthread* thread = mthread_alloc();
+mthread* create_thread(IV stack_size, IV linked_to) {
+	mthread* thread = mthread_alloc(linked_to);
 #ifdef WIN32
 	thread->handle = CreateThread(NULL,
 								  (DWORD)stack_size,

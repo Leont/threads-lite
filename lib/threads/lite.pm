@@ -13,8 +13,7 @@ use Storable 2.05;
 threads::lite->bootstrap($VERSION);
 
 ##no critic ProhibitAutomaticExportation
-our @EXPORT    = qw/receive/;
-our @EXPORT_OK = qw/send/;
+our @EXPORT = qw/receive receive_nb receive_table/;
 
 sub _receive;
 sub _receive_nb;
@@ -54,7 +53,7 @@ sub _get_runtime {
 
 sub spawn {
 	my ($class, $options, $args) = @_;
-	my $thread = $class->_create;
+	my $thread = $class->_create($options->{monitor});
 	for my $module (@{ $options->{modules} }) {
 		$thread->send(load => $module);
 	}

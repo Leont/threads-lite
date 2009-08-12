@@ -1,7 +1,7 @@
 typedef struct mthread {
 	UV thread_id;
 	message_queue queue;
-	perl_mutex mutex;
+	perl_mutex lock;
 #ifdef WIN32
 	DWORD  thr;                 /* OS's idea if thread id */
 	HANDLE handle;              /* OS's waitable handle */
@@ -16,4 +16,6 @@ typedef struct mthread {
 	} listeners;
 } mthread;
 
-extern mthread* create_thread(IV stack_size);
+extern mthread* create_thread(IV stack_size, IV linked_to);
+void S_store_self(pTHX_ mthread*);
+#define store_self(thread) S_store_self(aTHX_ thread)

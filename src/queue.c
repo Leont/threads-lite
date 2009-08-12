@@ -96,8 +96,25 @@ void S_message_push_stack(pTHX_ message* message) {
 	PUTBACK;
 }
 
+void S_message_clone(pTHX_ message* origin, message* clone) {
+	clone->type = origin->type;
+	switch (origin->type) {
+		case EMPTY:
+			break;
+		case STRING:
+		case STORABLE:
+			clone->string.length = origin->string.length;
+			clone->string.ptr = savepvn(origin->string.ptr, origin->string.length);
+			break;
+		default:
+			warn("Unknown type in message\n");
+	}
+}
+
+#define message_clone(origin, clone) S_message_clone(aTHX_ origin, clone)
+
 void message_destroy(message* message) {
-	switch(message->type) {
+	switch (message->type) {
 		case EMPTY:
 			break;
 		case STRING:
@@ -106,7 +123,7 @@ void message_destroy(message* message) {
 			Zero(message, 1, message);
 			break;
 		default:
-			warn("Unknown type in queue\n");
+			warn("Unknown type in message\n");
 	}
 }
 
@@ -173,6 +190,12 @@ void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external
 
 	COND_SIGNAL(&queue->condvar);
 	MUTEX_UNLOCK(&queue->mutex);
+}
+
+void S_queue_enqueue_copy(pTHX_ message_queue* queue, message* origin, perl_mutex* external_lock) {
+	message clone;
+	message_clone(origin, &clone);
+	queue_enqueue(queue, &clone, external_lock);
 }
 
 void queue_dequeue(message_queue* queue, message* input) {

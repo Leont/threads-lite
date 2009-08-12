@@ -19,13 +19,15 @@ MODULE = threads::lite             PACKAGE = threads::lite
 PROTOTYPES: DISABLED
 
 BOOT:
-	global_init();
+	global_init(aTHX);
 
 SV*
-_create(object)
+_create(object, monitor)
 	SV* object;
+	SV* monitor;
 	CODE:
-		mthread* thread = create_thread(65536);
+		UV id = SvTRUE(monitor) ? get_self(aTHX)->thread_id : -1;
+		mthread* thread = create_thread(65536, id);
 		RETVAL = newRV_noinc(newSVuv(thread->thread_id));
 		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
 	OUTPUT:
