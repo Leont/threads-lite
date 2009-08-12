@@ -7,12 +7,13 @@
 #include "mthread.h"
 #include "resources.h"
 
-message_queue* get_self(pTHX) {
+mthread* get_self(pTHX) {
 	SV** self_sv = hv_fetch(PL_modglobal, "thread::lite::self", 18, FALSE);
 	if (!self_sv)
 		Perl_croak(aTHX_ "Can't find self thread object!");
-	return &((mthread*)SvPV_nolen(*self_sv))->queue;
+	return (mthread*)SvPV_nolen(*self_sv);
 }
+
 MODULE = threads::lite             PACKAGE = threads::lite
 
 PROTOTYPES: DISABLED
@@ -33,17 +34,17 @@ _create(object)
 void
 _receive()
 	PPCODE:
-		message_queue* queue = get_self(aTHX);
+		mthread* thread = get_self(aTHX);
 		message message;
-		queue_dequeue(queue, &message);
+		queue_dequeue(&thread->queue, &message);
 		message_push_stack(&message);
 	
 void
 _receive_nb()
 	PPCODE:
-		message_queue* queue = get_self(aTHX);
+		mthread* thread = get_self(aTHX);
 		message message;
-		if (queue_dequeue_nb(queue, &message))
+		if (queue_dequeue_nb(&thread->queue, &message))
 			 message_push_stack(&message);
 		else
 			XSRETURN_EMPTY;
@@ -71,3 +72,10 @@ send(object, ...)
 		PUSHMARK(MARK + 2);
 		message_pull_stack(&message);
 		thread_send(thread_id, &message);
+
+void monitor(object)
+	SV* object;
+	CODE:
+		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
+			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
+		thread_add_listener(SvUV(SvRV(object)), get_self(aTHX)->thread_id);

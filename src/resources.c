@@ -12,12 +12,11 @@
  * !!! global data !!!
  */
 
-perl_mutex lock;
+perl_mutex thread_lock;
 bool inited = 0;
 UV current = 0;
 UV allocated = 0;
 mthread** threads = NULL;
-message_queue system_queue;
 
 void global_init() {
 	if (!inited) {
@@ -26,7 +25,6 @@ void global_init() {
 		Newxz(threads, 8, mthread*);
 		allocated = 8;
 		mthread* ret = mthread_alloc();
-		ret->status = DETACHED;
 #  ifdef WIN32
 		ret->thr = GetCurrentThreadId();
 #  else
@@ -81,3 +79,18 @@ void S_thread_send(pTHX_ UV thread_id, message* message) {
 		queue_enqueue(&thread->queue, message, &thread_lock);
 	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
 }
+
+void S_thread_add_listener(pTHX_ UV talker, UV listener) {
+	dXCPT;
+
+	MUTEX_LOCK(&thread_lock);
+	THREAD_TRY {
+		mthread* thread = get_thread(talker);
+		if (thread->listeners.alloc == thread->listeners.head) {
+			thread->listeners.alloc = thread->listeners.alloc ? thread->listeners.alloc * 2 : 1;
+			Renew(thread->listeners.list, thread->listeners.alloc, int);
+		}
+		thread->listeners.list[thread->listeners.head++] = listener;
+	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
+}
+
