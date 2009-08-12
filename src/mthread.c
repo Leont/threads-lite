@@ -156,7 +156,7 @@ mthread* create_thread(IV stack_size) {
 
 	static pthread_attr_t attr;
 	static int attr_inited = 0;
-	static int attr_joinable = PTHREAD_CREATE_JOINABLE;
+	static int attr_joinable = PTHREAD_CREATE_DETACHED;
 	if (! attr_inited) {
 		pthread_attr_init(&attr);
 		attr_inited = 1;

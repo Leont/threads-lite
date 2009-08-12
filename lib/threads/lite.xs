@@ -71,21 +71,3 @@ send(object, ...)
 		PUSHMARK(MARK + 2);
 		message_pull_stack(&message);
 		thread_send(thread_id, &message);
-
-void
-join(object)
-	SV* object;
-	CODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
-			UV thread_id = SvUV(SvRV(object));
-			thread_join(thread_id);
-
-void
-detach(object)
-	SV* object;
-	CODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
-			UV thread_id = SvUV(SvRV(object));
-			thread_detach(thread_id);

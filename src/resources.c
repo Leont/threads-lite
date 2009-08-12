@@ -17,6 +17,7 @@ bool inited = 0;
 UV current = 0;
 UV allocated = 0;
 mthread** threads = NULL;
+message_queue system_queue;
 
 void global_init() {
 	if (!inited) {
@@ -78,36 +79,5 @@ void S_thread_send(pTHX_ UV thread_id, message* message) {
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
 		queue_enqueue(&thread->queue, message, &thread_lock);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
-}
-
-#define self thr
-
-AV* S_thread_join(pTHX_ UV thread_id) {
-	dXCPT;
-	AV* ret;
-
-	MUTEX_LOCK(&thread_lock);
-	THREAD_TRY {
-		mthread* thread = get_thread(thread_id);
-		if (thread->status != RUNNING)
-			Perl_croak(aTHX_ "Thread "UVuf" is not joinable", thread_id);
-		JOIN(thread, ret);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
-	return ret;
-}
-
-void S_thread_detach(pTHX_ UV thread_id) {
-	dXCPT;
-
-	MUTEX_LOCK(&thread_lock);
-	THREAD_TRY {
-		mthread* thread = get_thread(thread_id);
-		if (thread->status != RUNNING)
-			Perl_croak(aTHX_ "Thread "UVuf" is not detachable", thread_id);
-		MUTEX_LOCK(&thread->mutex); //XXX small race condition
-		DETACH(thread);
-		thread->status = DETACHED;
-		MUTEX_UNLOCK(&thread->mutex);
 	} THREAD_FINALLY( MUTEX_UNLOCK(&thread_lock) );
 }
