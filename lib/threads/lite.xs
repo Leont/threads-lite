@@ -57,6 +57,14 @@ _load_module(module)
 	CODE:
 		load_module(PERL_LOADMOD_NOIMPORT, module, NULL, NULL);
 
+SV* self()
+	CODE:
+		mthread* thread = get_self(aTHX);
+		RETVAL = newRV_noinc(newSVuv(thread->thread_id));
+		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
+	OUTPUT:
+		RETVAL
+
 MODULE = threads::lite             PACKAGE = threads::lite::tid
 
 PROTOTYPES: DISABLED
