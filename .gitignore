@@ -14,3 +14,5 @@ threads-lite-*
 cover_db
 lib/threads/*.c
 *.o
+META.yml
+Makefile.PL
