@@ -5,6 +5,7 @@ inc/queue.h
 inc/resources.h
 lib/threads/lite.pm
 lib/threads/lite.xs
+lib/threads/lite/tid.pm
 MANIFEST			This list of files
 README
 src/mthread.c
