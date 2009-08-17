@@ -3,20 +3,23 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.010_001';
 
 use 5.010;
 
 use base qw/DynaLoader Exporter/;
-use Storable 2.05;
+use Storable 2.05 ();
 
 threads::lite->bootstrap($VERSION);
 
 ##no critic ProhibitAutomaticExportation
-our @EXPORT = qw/receive receive_nb receive_table/;
+our @EXPORT = qw/receive receive_nb receive_table self/;
+
+require threads::lite::tid;
 
 sub _receive;
 sub _receive_nb;
+sub self;
 
 my @message_cache;
 
@@ -30,7 +33,8 @@ sub _deep_equals {
 }
 
 sub _return_elements {
-	return wantarray ? @_ : $_[0];
+	my @args = @_;
+	return wantarray ? @args : $args[0];
 }
 
 sub _match_mailbox {
@@ -44,10 +48,12 @@ sub _match_mailbox {
 
 sub _get_runtime {
 	my $ret;
-	1 while (receive_table(
-		[ 'load' ] => \&_load_module,
-		[ 'run'  ] => sub { $ret = $_[1] },
-		) ne 'run');
+	1 while (
+		receive_table(
+			['load'] => \&_load_module,
+			['run']  => sub { $ret = $_[1] },
+		) ne 'run'
+	);
 	return $ret;
 }
 
@@ -60,6 +66,8 @@ sub spawn {
 	$thread->send(run => $args);
 	return $thread;
 }
+
+##no critic Subroutines::RequireFinalReturn
 
 sub receive {
 	my @args = @_;
@@ -116,23 +124,57 @@ threads::lite - Yet another threads library
 
 =head1 VERSION
 
-Version 0.01
+Version 0.010
 
 =head1 SYNOPSIS
 
-This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by thread queues (channel). It thus facilitates a messsage passing style of multi-threading.
+This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
+
+=head1 CLASS METHODS
+
+=head3 spawn($options, $sub)
+
+Spawn a new thread. It will run $sub and send all monitoring processes it's return value. $options is a hashref that can contain the following elements.
+
+=over 4
+
+=item monitor => 0/1
+
+If this is true, the calling process will monitor the newly spawned.
+
+=item modules => [...]
+
+Load the specified modules before running any code.
+
+=back
+
+$sub can be a function name or a subref. In the latter case it will be serialized, sent to the new thread. This means that any enclosed variables will probability not work as expected.
 
 =head1 FUNCTIONS
 
-=head2 spawn
+All functions are exported by default.
 
-=head2 send
+=head2 Receiving functions
 
-=head2 receive
+threads::lite exports by default three functions for receiving messages from the process mailbox. Each of them accepts matching patterns used to select those messages. Each of the elements in the pattern will be smartmatched against the appropriate element in the message. The message may contain more elements than the pattern, they will not be included in the matching.
 
-=head2 receive_nb
+=head3 receive(@pattern)
 
-=head2 receive_table
+Return the first message matching pattern @pattern. If there is no such message in the queue, it blocks until a suitable message is received.
+
+=head3 receive_nb(@pattern)
+
+Return the first message matching pattern @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
+
+=head3 receive_table( [@pattern] => action ]...)
+
+Try to match each pattern to the message queue. The first successful pattern is used. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received.
+
+=head2 Utility functions
+
+=head3 self
+
+Retreive the tid corresponding with the current thread.
 
 =head1 AUTHOR
 
@@ -140,11 +182,11 @@ Leon Timmermans, C<< <leont at cpan.org> >>
 
 =head1 BUGS
 
+This is an early development release, and is expected to be buggy and incomplete.
+
 Please report any bugs or feature requests to C<bug-threads-lite at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=threads-lite>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
-
-
 
 
 =head1 SUPPORT
@@ -176,21 +218,11 @@ L<http://search.cpan.org/dist/threads-lite>
 
 =back
 
-
-=head1 ACKNOWLEDGEMENTS
-
-
 =head1 COPYRIGHT & LICENSE
 
 Copyright 2009 Leon Timmermans, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
-
-=cut
-
-=for ignore
-
-=head2 STORABLE_freeze
 
 =cut
