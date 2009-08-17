@@ -3,7 +3,7 @@ threads-lite
 This module contains an alternative threads implementation for perl. To summarize things:
 
  * The interpreter data is *not* cloned. Every thread/interpreter is independent from the others
- * Communication between the interpreters is only possible through thread queues
+ * Communication between the interpreters is only possible through message queues
 
 INSTALLATION
 
