@@ -19,9 +19,9 @@ my $builder = Module::Build->new(
 		Storable        => 2.05,
 	},
 	c_source            => 'src',
-	include_dirs        => [ 'inc' ],
     add_to_cleanup      => [ 'threads-lite-*' ],
 	create_makefile_pl  => 'passthrough',
+	sign                => 1,
 );
 
 $builder->create_build_script();
