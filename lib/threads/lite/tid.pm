@@ -5,7 +5,7 @@ use warnings;
 
 use threads::lite qw/self receive/;
 
-our $VERSION = '0.010';
+our $VERSION = $threads::lite::VERSION;
 
 sub rpc {
 	my ($self, @arguments) = @_;
