@@ -8,7 +8,7 @@
 #include "resources.h"
 
 mthread* get_self(pTHX) {
-	SV** self_sv = hv_fetch(PL_modglobal, "thread::lite::self", 18, FALSE);
+	SV** self_sv = hv_fetch(PL_modglobal, "threads::lite::thread", 21, FALSE);
 	if (!self_sv)
 		Perl_croak(aTHX_ "Can't find self thread object!");
 	return (mthread*)SvPV_nolen(*self_sv);
@@ -47,7 +47,7 @@ _receive_nb()
 		mthread* thread = get_self(aTHX);
 		message message;
 		if (queue_dequeue_nb(&thread->queue, &message))
-			 message_push_stack(&message);
+			message_push_stack(&message);
 		else
 			XSRETURN_EMPTY;
 
@@ -60,8 +60,8 @@ _load_module(module)
 SV* self()
 	CODE:
 		mthread* thread = get_self(aTHX);
-		RETVAL = newRV_noinc(newSVuv(thread->thread_id));
-		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
+		SV** ret = hv_fetch(PL_modglobal, "threads::lite::self", 19, FALSE);
+		RETVAL = *ret;
 	OUTPUT:
 		RETVAL
 
