@@ -71,7 +71,7 @@ void S_store_self(pTHX_ mthread* thread) {
 	SvREADONLY_on(thread_sv);
 	hv_store(PL_modglobal, "threads::lite::thread", 21, thread_sv, 0);
 
-	SV* self = newRV_noinc(newSVuv(thread->thread_id));
+	SV* self = newRV_noinc(newSVuv(thread->id));
 	sv_bless(self, gv_stashpv("threads::lite::tid", TRUE));
 	hv_store(PL_modglobal, "threads::lite::self", 19, self, 0);
 }

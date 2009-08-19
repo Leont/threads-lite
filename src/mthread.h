@@ -1,5 +1,5 @@
 typedef struct mthread {
-	UV thread_id;
+	UV id;
 	message_queue queue;
 	perl_mutex lock;
 #ifdef WIN32

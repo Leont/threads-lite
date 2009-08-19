@@ -44,7 +44,7 @@ mthread* mthread_alloc(IV linked_to) {
 		ret->listeners.alloc = ret->listeners.head = 1;
 	}
 	MUTEX_LOCK(&thread_lock);
-	ret->thread_id = current;
+	ret->id = current;
 	if (current == allocated)
 		Renew(threads, allocated *=2, mthread*);
 	threads[current++] = ret;
@@ -54,7 +54,7 @@ mthread* mthread_alloc(IV linked_to) {
 
 void mthread_destroy(mthread* thread) {
 	MUTEX_LOCK(&thread_lock);
-	threads[thread->thread_id] = NULL;
+	threads[thread->id] = NULL;
 	MUTEX_UNLOCK(&thread_lock);
 	queue_destroy(&thread->queue);
 }

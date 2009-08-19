@@ -26,9 +26,9 @@ _create(object, monitor)
 	SV* object;
 	SV* monitor;
 	CODE:
-		UV id = SvTRUE(monitor) ? get_self(aTHX)->thread_id : -1;
+		UV id = SvTRUE(monitor) ? get_self(aTHX)->id : -1;
 		mthread* thread = create_thread(65536, id);
-		RETVAL = newRV_noinc(newSVuv(thread->thread_id));
+		RETVAL = newRV_noinc(newSVuv(thread->id));
 		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
 	OUTPUT:
 		RETVAL
@@ -88,4 +88,4 @@ void monitor(object)
 	CODE:
 		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
 			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
-		thread_add_listener(SvUV(SvRV(object)), get_self(aTHX)->thread_id);
+		thread_add_listener(SvUV(SvRV(object)), get_self(aTHX)->id);
