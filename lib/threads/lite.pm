@@ -48,12 +48,15 @@ sub _match_mailbox {
 
 sub _get_runtime {
 	my $ret;
-	1 while (
+	while (!defined $ret) {
 		receive_table(
-			['load'] => \&_load_module,
-			['run']  => sub { $ret = $_[1] },
-		) ne 'run'
-	);
+			['load'] => sub {
+				my (undef, $module) = @_;
+				_load_module($module);
+			},
+			['run']  => sub { (undef, $ret) = @_ },
+		);
+	}
 	return $ret;
 }
 
@@ -109,8 +112,8 @@ sub receive_table {
 				$pair->[1]->(@next) if defined $pair->[1];
 				return _return_elements(@next);
 			}
-			push @message_cache, \@next;
 		}
+		push @message_cache, \@next;
 	}
 }
 
