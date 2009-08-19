@@ -14,6 +14,11 @@ sub rpc {
 	return (@ret);
 }
 
+sub id {
+	my $self = shift;
+	return ${$self};
+}
+
 1;
 
 __END__
@@ -35,6 +40,10 @@ This module represents a thread ID object. It provides a handle to a thread.
 =head2 send(@list)
 
 Send a message to a thread. The message items may contain any data type that can be serialized by L<Storable> (including coderefs).
+
+=head2 id
+
+Get the numerical id of this thread.
 
 =head2 monitor
 
