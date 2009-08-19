@@ -31,10 +31,14 @@ S_resource_init(resource* res, UV preallocate, size_t size) {
 
 #define resource_init(res, pre, type) S_resource_init(res, pre, sizeof(type))
 
-void resource_addobject(resource* res, void* object) {
+UV resource_addobject(resource* res, void* object) {
+	MUTEX_LOCK(&res->lock);
+	UV ret = res->current;
 	if (res->current == res->allocated)
 		res->objects = saferealloc(res->objects, res->size * (res->allocated *=2));
 	res->objects[res->current++] = object;
+	MUTEX_UNLOCK(&res->lock);
+	return ret;
 }
 
 void resource_removeobject(resource* res, UV id) {
@@ -44,6 +48,7 @@ void resource_removeobject(resource* res, UV id) {
 }
 
 resource threads;
+resource queues;
 
 void global_init(pTHX) {
 	if (!inited) {
@@ -68,10 +73,8 @@ mthread* mthread_alloc(IV linked_to) {
 		ret->listeners.list[0] = linked_to;
 		ret->listeners.alloc = ret->listeners.head = 1;
 	}
-	MUTEX_LOCK(&threads.lock);
-	ret->id = threads.current;
-	resource_addobject(&threads, ret);
-	MUTEX_UNLOCK(&threads.lock);
+	UV id = resource_addobject(&threads, ret);
+	ret->id = id;
 	return ret;
 }
 
@@ -87,6 +90,21 @@ static mthread* S_get_thread(pTHX_ UV thread_id) {
 }
 
 #define get_thread(id) S_get_thread(aTHX_ id)
+
+UV queue_alloc(IV linked_to) {
+	message_queue* queue;
+	Newxz(queue, 1, message_queue);
+	queue_init(queue);
+	return resource_addobject(&queues, queue);
+}
+
+static message_queue* S_get_queue(pTHX_ UV queue_id) {
+	if (queue_id >= queues.current || queues.objects[queue_id] == NULL)
+		Perl_croak(aTHX_  "queue %"UVuf" doesn't exist", queue_id);
+	return queues.objects[queue_id];
+}
+
+#define get_queue(id) S_get_thread(aTHX_ id)
 
 #define THREAD_TRY \
 	XCPT_TRY_START
@@ -108,7 +126,17 @@ void S_thread_send(pTHX_ UV thread_id, message* message) {
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
 		queue_enqueue(&thread->queue, message, &threads.lock);
-	} THREAD_FINALLY( MUTEX_UNLOCK(&threads.lock) );
+	} THREAD_CATCH( MUTEX_UNLOCK(&threads.lock) );
+}
+
+void S_queue_send(pTHX_ UV queue_id, message* message) {
+	dXCPT;
+
+	MUTEX_LOCK(&queues.lock);
+	THREAD_TRY {
+		message_queue* queue = get_queue(queue_id);
+		queue_enqueue(queue, message, &queues.lock);
+	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
 }
 
 void S_send_listeners(pTHX_ mthread* thread, message* message) {

@@ -89,3 +89,31 @@ void monitor(object)
 		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
 			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
 		thread_add_listener(SvUV(SvRV(object)), get_self(aTHX)->id);
+
+MODULE = threads::lite             PACKAGE = threads::lite::queue
+
+PROTOTYPES: DISABLED
+
+SV*
+new(class)
+	SV* class;
+	CODE:
+		UV queue_id = queue_alloc();
+		RETVAL = newRV_noinc(newSVuv(queue_id));
+		sv_bless(RETVAL, gv_stashpv("threads::lite::queue", FALSE));
+	OUTPUT:
+		RETVAL
+
+void
+enqueue(object, ...)
+	SV* object;
+	CODE:
+		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::queue"))
+			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
+		if (items == 1)
+			Perl_croak(aTHX_ "Can't send an empty list\n");
+		UV queue_id = SvUV(SvRV(object));
+		message message;
+		PUSHMARK(MARK + 2);
+		message_pull_stack(&message);
+		queue_send(queue_id, &message);

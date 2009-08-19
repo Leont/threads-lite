@@ -1,6 +1,7 @@
 void global_init(pTHX);
 
 mthread* mthread_alloc();
+UV queue_alloc();
 void mthread_finish(mthread*);
 
 void S_thread_send(pTHX_ UV thread_id, message* message);
