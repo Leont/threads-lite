@@ -61,7 +61,7 @@ SV* self()
 	CODE:
 		mthread* thread = get_self(aTHX);
 		SV** ret = hv_fetch(PL_modglobal, "threads::lite::self", 19, FALSE);
-		RETVAL = *ret;
+		RETVAL = SvREFCNT_inc(*ret);
 	OUTPUT:
 		RETVAL
 
