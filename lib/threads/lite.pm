@@ -54,7 +54,7 @@ sub _get_runtime {
 				my (undef, $module) = @_;
 				_load_module($module);
 			},
-			['run']  => sub { (undef, $ret) = @_ },
+			['run'] => sub { (undef, $ret) = @_ },
 		);
 	}
 	return $ret;
