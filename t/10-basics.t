@@ -1,6 +1,6 @@
 #!perl 
 
-use Test::More 'no_plan';
+use Test::More tests => 2;
 use Test::Differences;
 
 use threads::lite;
@@ -17,6 +17,6 @@ receive_table(
 		eq_or_diff \@arg, [ 'normal', 42], "Got return value 42";
 	},
 	[ 'exit' ]   => sub {
-		ok(0, "Got return value 42");
-	}
+		ok(0, 'Got return value 42');
+	},
 );

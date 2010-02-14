@@ -1,6 +1,6 @@
 void global_init(pTHX);
 
-mthread* mthread_alloc();
+mthread* mthread_alloc(PerlInterpreter*);
 UV queue_alloc();
 void mthread_finish(mthread*);
 

@@ -66,8 +66,8 @@ sub _get_runtime {
 
 sub spawn {
 	my ($class, $options, $args) = @_;
-	my $thread = $class->_create($options->{monitor});
-	my $number = $options->{times} || 1;
+	my $number = $options->{times} ||= 1;
+	my $thread = $class->_create($options);
 	for my $module (@{ $options->{modules} }) {
 		$thread->send(load => $module);
 	}

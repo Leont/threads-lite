@@ -1,7 +1,8 @@
 typedef struct mthread {
-	UV id;
-	message_queue queue;
+	PerlInterpreter* interp;
 	perl_mutex lock;
+	message_queue queue;
+	UV id;
 #ifdef WIN32
 	DWORD  thr;                 /* OS's idea if thread id */
 	HANDLE handle;              /* OS's waitable handle */
@@ -14,10 +15,10 @@ typedef struct mthread {
 		UV head;
 		UV alloc;
 	} listeners;
-	PerlInterpreter* interp;
 } mthread;
 
-extern mthread* create_thread(IV stack_size, IV linked_to);
+extern mthread* S_create_thread(PerlInterpreter*, SV* startup);
+#define create_thread(startup) S_create_thread(aTHX_ startup)
 extern mthread* clone_thread(pTHX_ IV stack_size);
 void S_store_self(pTHX_ mthread*);
 #define store_self(thread) S_store_self(aTHX_ thread)

@@ -58,7 +58,7 @@ void S_message_pull_stack(pTHX_ message* message) {
 	}
 }
 
-void S_message_push_stack(pTHX_ message* message) {
+void S_message_push_stack(pTHX_ message* message, U32 context) {
 	dSP;
 
 	switch(message->type) {
@@ -76,14 +76,17 @@ void S_message_push_stack(pTHX_ message* message) {
 			LEAVE;
 			AV* values = (AV*)SvRV(POPs);
 
-			if (GIMME_V == G_SCALAR) {
+			if (context == G_SCALAR) {
 				SV** ret = av_fetch(values, 0, FALSE);
 				PUSHs(ret ? *ret : &PL_sv_undef);
 			}
-			else if (GIMME_V == G_ARRAY) {
+			else if (context == G_ARRAY) {
 				UV count = av_len(values) + 1;
 				Copy(AvARRAY(values), SP + 1, count, SV*);
 				SP += count;
+			}
+			else {
+				Perl_warn(aTHX_ "pushing on void stack!");
 			}
 			break;
 		}

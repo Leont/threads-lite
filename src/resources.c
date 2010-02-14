@@ -54,7 +54,7 @@ void global_init(pTHX) {
 	if (!inited) {
 		inited = TRUE;
 		resource_init(&threads, 8, mthread*);
-		mthread* ret = mthread_alloc();
+		mthread* ret = mthread_alloc(aTHX);
 #  ifdef WIN32
 		ret->thr = GetCurrentThreadId();
 #  else
@@ -65,17 +65,13 @@ void global_init(pTHX) {
 	}
 }
 
-mthread* mthread_alloc(IV linked_to) {
+mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	mthread* ret;
 	Newxz(ret, 1, mthread);
 	queue_init(&ret->queue);
-	if (linked_to >= 0) {
-		Newxz(ret->listeners.list, 1, IV);
-		ret->listeners.list[0] = linked_to;
-		ret->listeners.alloc = ret->listeners.head = 1;
-	}
 	UV id = resource_addobject(&threads, ret);
 	ret->id = id;
+	ret->interp = my_perl;
 	return ret;
 }
 
@@ -105,19 +101,19 @@ static message_queue* S_get_queue(pTHX_ UV queue_id) {
 	return queues.objects[queue_id];
 }
 
-#define get_queue(id) S_get_thread(aTHX_ id)
+#define get_queue(id) S_get_queue(aTHX_ id)
 
 #define THREAD_TRY \
 	XCPT_TRY_START
 
-#define THREAD_CATCH(undo) \
+#define THREAD_CATCH_FINALLY(catch, finally) \
 	XCPT_TRY_END;\
-	XCPT_CATCH { undo; XCPT_RETHROW; }
+	finally;\
+	XCPT_CATCH { catch; XCPT_RETHROW; }
 
-#define THREAD_FINALLY(undo) \
-	XCPT_TRY_END;\
-	undo;\
-	XCPT_CATCH { XCPT_RETHROW; }
+#define THREAD_CATCH(undo) THREAD_CATCH_FINALLY(undo, 0)
+
+#define THREAD_FINALLY(undo) THREAD_CATCH_FINALLY(0, undo)
 
 
 void S_thread_send(pTHX_ UV thread_id, message* message) {

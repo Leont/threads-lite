@@ -18,8 +18,8 @@ typedef struct {
 	queue_node* reserve;
 } message_queue;
 
-void S_message_push_stack(pTHX_ message*);
-#define message_push_stack(values) STMT_START { PUTBACK; S_message_push_stack(aTHX_ (values)); SPAGAIN; } STMT_END
+void S_message_push_stack(pTHX_ message*, U32 context);
+#define message_push_stack(values, context) STMT_START { PUTBACK; S_message_push_stack(aTHX_ (values), context); SPAGAIN; } STMT_END
 
 void S_message_pull_stack(pTHX_ message*);
 #define message_pull_stack(message, offset) STMT_START { PUSHMARK(offset); PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END

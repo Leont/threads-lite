@@ -85,22 +85,10 @@ mthread* S_get_self(pTHX) {
 
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
-	PerlInterpreter* my_perl;
-	if (thread->interp == NULL) {
-		my_perl = thread->interp = perl_alloc();
-		perl_construct(my_perl);
-		PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
-
-		perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
-	}
-	else
-		my_perl = thread->interp;
+	PerlInterpreter* my_perl = thread->interp;
 
 	S_set_sigmask(&thread->initial_sigmask);
-
-	store_self(thread);
-
-	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
+	PERL_SET_CONTEXT(my_perl);
 
 	dSP;
 
@@ -173,15 +161,9 @@ static int S_set_sigmask(sigset_t *newmask)
 }
 #endif /* WIN32 */
 
-static mthread* create_thread_impl(IV stack_size, IV linked_to) {
-	mthread* thread = mthread_alloc(linked_to);
+static mthread* start_thread(mthread* thread, IV stack_size) {
 #ifdef WIN32
-	thread->handle = CreateThread(NULL,
-								  (DWORD)stack_size,
-								  run_thread,
-								  (LPVOID)thread,
-								  STACK_SIZE_PARAM_IS_A_RESERVATION,
-								  &thread->thr);
+	thread->handle = CreateThread(NULL, (DWORD)stack_size, run_thread, (LPVOID)thread, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread->thr);
 #else
 	int rc_stack_size = 0;
 	int rc_thread_create = 0;
@@ -227,6 +209,43 @@ static mthread* create_thread_impl(IV stack_size, IV linked_to) {
 	return thread;
 }
 
-mthread* create_thread(IV stack_size, IV linked_to) {
-	return create_thread_impl(stack_size, linked_to);
+static PerlInterpreter* construct_perl() {
+	PerlInterpreter* my_perl = perl_alloc();
+	PERL_SET_CONTEXT(my_perl);
+	perl_construct(my_perl);
+	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
+
+	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
+	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
+	return my_perl;
+}
+
+static int should_monitor(pTHX, SV* options) {
+	SV** stack_size_ptr = hv_fetch((HV*)SvRV(options), "monitor", 7, FALSE);
+	if (stack_size_ptr && SvOK(*stack_size_ptr))
+		return SvIV(*stack_size_ptr);
+	return FALSE;
+}
+
+static unsigned get_stack_size(pTHX, SV* options) {
+	SV** stack_size_ptr = hv_fetch((HV*)SvRV(options), "stack_size", 10, FALSE);
+	if (stack_size_ptr && SvOK(*stack_size_ptr))
+		return SvUV(*stack_size_ptr);
+	return 65536u;
+}
+
+
+mthread* S_create_thread(PerlInterpreter* self, SV* options) {
+	UV id = S_get_self(self)->id;
+	PerlInterpreter* my_perl = construct_perl();
+
+	mthread* thread = mthread_alloc(my_perl);
+	store_self(thread);
+	if (should_monitor(aTHX, options))
+		thread_add_listener(thread->id, id);
+
+	start_thread(thread, get_stack_size(aTHX, options));
+
+	PERL_SET_CONTEXT(self);
+	return thread;
 }

@@ -15,12 +15,11 @@ BOOT:
 	global_init(aTHX);
 
 SV*
-_create(class, monitor)
+_create(class, options)
 	SV* class;
-	SV* monitor;
+	SV* options;
 	CODE:
-		UV id = SvTRUE(monitor) ? get_self()->id : -1;
-		mthread* thread = create_thread(65536, id);
+		mthread* thread = create_thread(options);
 		RETVAL = newRV_noinc(newSVuv(thread->id));
 		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
 	OUTPUT:
@@ -40,7 +39,7 @@ _receive()
 		mthread* thread = get_self();
 		message message;
 		queue_dequeue(&thread->queue, &message);
-		message_push_stack(&message);
+		message_push_stack(&message, GIMME_V);
 	
 void
 _receive_nb()
@@ -48,7 +47,7 @@ _receive_nb()
 		mthread* thread = get_self();
 		message message;
 		if (queue_dequeue_nb(&thread->queue, &message))
-			message_push_stack(&message);
+			message_push_stack(&message, GIMME_V);
 		else
 			XSRETURN_EMPTY;
 
@@ -126,4 +125,4 @@ dequeue(object)
 		UV queue_id = SvUV(SvRV(object));
 		message message;
 //		queue_receive(queue, &message);
-		message_push_stack(&message);
+		message_push_stack(&message, GIMME_V);
