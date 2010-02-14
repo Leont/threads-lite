@@ -7,12 +7,13 @@ our $VERSION = '0.010_001';
 
 use 5.010;
 
-use base qw/DynaLoader Exporter/;
+use base qw/Exporter/;
 use Storable 2.05 ();
 
-threads::lite->bootstrap($VERSION);
+use XSLoader;
+XSLoader::load('threads::lite', $VERSION);
 
-##no critic ProhibitAutomaticExportation
+##no critic qw(ProhibitAutomaticExportation)
 our @EXPORT = qw/receive receive_nb receive_table self/;
 
 require threads::lite::tid;
@@ -54,6 +55,9 @@ sub _get_runtime {
 				my (undef, $module) = @_;
 				_load_module($module);
 			},
+			['clone'] => sub {
+				_clone_self();
+			},
 			['run'] => sub { (undef, $ret) = @_ },
 		);
 	}
@@ -63,14 +67,16 @@ sub _get_runtime {
 sub spawn {
 	my ($class, $options, $args) = @_;
 	my $thread = $class->_create($options->{monitor});
+	my $number = $options->{times} || 1;
 	for my $module (@{ $options->{modules} }) {
 		$thread->send(load => $module);
 	}
+	$thread->send('clone') while --$number;
 	$thread->send(run => $args);
 	return $thread;
 }
 
-##no critic Subroutines::RequireFinalReturn
+##no critic (Subroutines::RequireFinalReturn)
 
 sub receive {
 	my @args = @_;

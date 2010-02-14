@@ -14,8 +14,12 @@ typedef struct mthread {
 		UV head;
 		UV alloc;
 	} listeners;
+	PerlInterpreter* interp;
 } mthread;
 
 extern mthread* create_thread(IV stack_size, IV linked_to);
+extern mthread* clone_thread(pTHX_ IV stack_size);
 void S_store_self(pTHX_ mthread*);
 #define store_self(thread) S_store_self(aTHX_ thread)
+mthread* S_get_self(pTHX);
+#define get_self() S_get_self(aTHX)

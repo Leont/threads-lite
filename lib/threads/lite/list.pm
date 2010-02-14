@@ -35,8 +35,8 @@ sub _mapper {
 
 sub _receive_next {
 	my $threads = shift;
-	my ($thread, undef, $index, $value) = receive($threads, 'map');
-	return ($thread, $index, $value);
+	my ($thread, undef, $index, @value) = receive($threads, 'map');
+	return ($thread, $index, @value);
 }
 
 sub new {
@@ -47,8 +47,9 @@ sub new {
 		@_,
 	);
 	my @modules = ('threads::lite::list', @{ $options{modules} });
-	my %threads = map { $_->id => $_ } map {
-		threads::lite->spawn({ modules => \@modules, monitor => 1 }, 'threads::lite::list::_mapper' )
+	my %threads = map {
+		my $thread = threads::lite->spawn({ modules => \@modules, monitor => 1 }, 'threads::lite::list::_mapper' );
+		( $thread->id => $thread );
 	} 1..$options{threads};
 	$_->send(filter => $options{code}) for values %threads;
 	return bless \%threads, $class;

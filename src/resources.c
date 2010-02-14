@@ -60,6 +60,7 @@ void global_init(pTHX) {
 #  else
 		ret->thr = pthread_self();
 #  endif
+		ret->interp = NULL; // XXX
 		store_self(ret);
 	}
 }

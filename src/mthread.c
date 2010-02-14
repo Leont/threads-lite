@@ -76,13 +76,26 @@ void S_store_self(pTHX_ mthread* thread) {
 	hv_store(PL_modglobal, "threads::lite::self", 19, self, 0);
 }
 
+mthread* S_get_self(pTHX) {
+    SV** self_sv = hv_fetch(PL_modglobal, "threads::lite::thread", 21, FALSE);
+    if (!self_sv)
+        Perl_croak(aTHX_ "Can't find self thread object!");
+    return (mthread*)SvPV_nolen(*self_sv);
+}
+
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
-	PerlInterpreter* my_perl = perl_alloc();
-	perl_construct(my_perl);
-	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
+	PerlInterpreter* my_perl;
+	if (thread->interp == NULL) {
+		my_perl = thread->interp = perl_alloc();
+		perl_construct(my_perl);
+		PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
 
-	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
+		perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
+	}
+	else
+		my_perl = thread->interp;
+
 	S_set_sigmask(&thread->initial_sigmask);
 
 	store_self(thread);
@@ -161,7 +174,7 @@ static int S_set_sigmask(sigset_t *newmask)
 }
 #endif /* WIN32 */
 
-mthread* create_thread(IV stack_size, IV linked_to) {
+static mthread* create_thread_impl(IV stack_size, IV linked_to) {
 	mthread* thread = mthread_alloc(linked_to);
 #ifdef WIN32
 	thread->handle = CreateThread(NULL,
@@ -213,4 +226,8 @@ mthread* create_thread(IV stack_size, IV linked_to) {
 	S_set_sigmask(&thread->initial_sigmask);
 #endif
 	return thread;
+}
+
+mthread* create_thread(IV stack_size, IV linked_to) {
+	return create_thread_impl(stack_size, linked_to);
 }
