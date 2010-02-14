@@ -80,8 +80,7 @@ send(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		UV thread_id = SvUV(SvRV(object));
 		message message;
-		PUSHMARK(MARK + 2);
-		message_pull_stack(&message);
+		message_pull_stack(&message, MARK + 2);
 		thread_send(thread_id, &message);
 
 void monitor(object)
@@ -115,8 +114,7 @@ enqueue(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		UV queue_id = SvUV(SvRV(object));
 		message message;
-		PUSHMARK(MARK + 2);
-		message_pull_stack(&message);
+		message_pull_stack(&message, MARK + 2);
 		queue_send(queue_id, &message);
 
 void

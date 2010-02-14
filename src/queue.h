@@ -22,7 +22,7 @@ void S_message_push_stack(pTHX_ message*);
 #define message_push_stack(values) STMT_START { PUTBACK; S_message_push_stack(aTHX_ (values)); SPAGAIN; } STMT_END
 
 void S_message_pull_stack(pTHX_ message*);
-#define message_pull_stack(message) STMT_START { PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END
+#define message_pull_stack(message, offset) STMT_START { PUSHMARK(offset); PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END
 
 
 void queue_init(message_queue*);

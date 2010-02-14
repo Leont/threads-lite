@@ -58,8 +58,6 @@ void S_message_pull_stack(pTHX_ message* message) {
 	}
 }
 
-#define message_pull_stack(message) STMT_START { PUTBACK; S_message_pull_stack(aTHX_ message); SPAGAIN; } STMT_END
-
 void S_message_push_stack(pTHX_ message* message) {
 	dSP;
 

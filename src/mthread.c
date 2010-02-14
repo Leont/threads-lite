@@ -123,8 +123,7 @@ static void* run_thread(void* arg) {
 		sv_setpvn(status, "error", 5);
 		PUSHs(ERRSV);
 	}
-	PUSHMARK(old);
-	message_pull_stack(&message);
+	message_pull_stack(&message, old);
 	send_listeners(thread, &message);
 	message_destroy(&message);
 
