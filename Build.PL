@@ -1,6 +1,12 @@
 use strict;
 use warnings;
 use Module::Build;
+use Config;
+
+if (not $Config{useithreads}) {
+	print STDERR "Can't use threads::lite without threading support";
+	exit 0;
+}
 
 my $builder = Module::Build->new(
 	module_name         => 'threads::lite',
@@ -20,7 +26,7 @@ my $builder = Module::Build->new(
 	},
 	c_source            => 'src',
     add_to_cleanup      => [ 'threads-lite-*' ],
-	create_makefile_pl  => 'passthrough',
+	create_makefile_pl  => 'small',
 	sign                => 1,
 );
 
