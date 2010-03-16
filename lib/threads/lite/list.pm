@@ -48,7 +48,7 @@ sub new {
 	);
 	my @modules = ('threads::lite::list', @{ $options{modules} });
 	my %threads = map { ( $_->id => $_ ) }
-		threads::lite->spawn({ modules => \@modules, monitor => 1 , pool_size => $options{threads}}, \&{'threads::lite::list::_mapper'} );
+		threads::lite->spawn({ modules => \@modules, monitor => 1 , pool_size => $options{threads}}, 'threads::lite::list::_mapper' );
 	$_->send(filter => $options{code}) for values %threads;
 	return bless \%threads, $class;
 }

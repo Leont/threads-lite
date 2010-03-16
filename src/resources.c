@@ -41,12 +41,6 @@ UV resource_addobject(resource* res, void* object) {
 	return ret;
 }
 
-void resource_removeobject(resource* res, UV id) {
-	MUTEX_LOCK(&res->lock);
-	res->objects[id] = NULL;
-	MUTEX_UNLOCK(&res->lock);
-}
-
 resource threads;
 resource queues;
 
@@ -61,7 +55,7 @@ void global_init(pTHX) {
 		ret->thr = pthread_self();
 #  endif
 		ret->interp = NULL; // XXX
-		store_self(ret);
+		store_self(aTHX, ret);
 	}
 }
 
@@ -76,8 +70,10 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 }
 
 void mthread_destroy(mthread* thread) {
-	resource_removeobject(&threads, thread->id);
+	MUTEX_LOCK(&threads.lock);
+	threads.objects[thread->id] = NULL;
 	queue_destroy(&thread->queue);
+	MUTEX_UNLOCK(&threads.lock);
 }
 
 static mthread* S_get_thread(pTHX_ UV thread_id) {
@@ -153,7 +149,7 @@ void S_send_listeners(pTHX_ mthread* thread, message* message) {
 
 #define send_listeners(thread, message) S_send_listeners(aTHX_ thread, message)
 
-void S_thread_add_listener(pTHX_ UV talker, UV listener) {
+void thread_add_listener(pTHX, UV talker, UV listener) {
 	dXCPT;
 
 	MUTEX_LOCK(&threads.lock);

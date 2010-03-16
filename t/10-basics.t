@@ -12,11 +12,11 @@ ok(1, 'Created thread');
 alarm 5;
 
 receive_table(
-	[ 'normal' ] => sub {
+	[ 'exit', 'normal' ] => sub {
 		my @arg = @_;
-		eq_or_diff \@arg, [ 'normal', 42], "Got return value 42";
+		eq_or_diff \@arg, [ 'exit', 'normal', $thread->id, 42], "Got return value 42";
 	},
-	[ 'error' ]   => sub {
+	[ 'exit', 'error' ]   => sub {
 		ok(0, 'Got return value 42');
 	},
 );

@@ -13,3 +13,4 @@ my @reference = map { $_ * 2} 1 .. 4;
 
 	eq_or_diff(\@foo, \@reference, "tmap { \$_ * 2 } 1..4");
 }
+

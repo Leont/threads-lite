@@ -62,7 +62,7 @@ static void xs_init(pTHX) {
 static const char* argv[] = {"", "-e", "threads::lite::_run()"};
 static int argc = sizeof argv / sizeof *argv;
 
-void S_store_self(pTHX_ mthread* thread) {
+void store_self(pTHX, mthread* thread) {
 	SV* thread_sv = newSV_type(SVt_PV);
 	SvPVX(thread_sv) = (char*) thread;
 	SvCUR(thread_sv) = sizeof(mthread);
@@ -89,38 +89,38 @@ static void* run_thread(void* arg) {
 
 	S_set_sigmask(&thread->initial_sigmask);
 	PERL_SET_CONTEXT(my_perl);
-	Perl_warn(aTHX_ "# Started thread %"UVuf"\n", thread->id);
-
-	dSP;
 
 	message to_run;
 	queue_dequeue(&thread->queue, &to_run);
 	SV* call = SvRV(message_load_value(&to_run));
 
-	SV* status = newSVpvn("normal", 6);
+	dSP;
 
 	PUSHMARK(SP);
+	PUSHs(newSVpvn("exit", 4));
+	SV* status = newSVpvn("normal", 6);
 	PUSHs(status);
+	PUSHs(newSViv(thread->id));
 
 	PUSHMARK(SP);
 	PUTBACK;
 	call_sv(call, G_ARRAY|G_EVAL);
 	SPAGAIN;
 
-	message message;
 	if (SvTRUE(ERRSV)) {
 		sv_setpvn(status, "error", 5);
-		warn("Got error %s\n", SvPV_nolen(ERRSV));
+		warn("Thread %"UVuf" got error %s\n", thread->id, SvPV_nolen(ERRSV));
 		PUSHs(ERRSV);
 	}
+	message message;
 	message_pull_stack_pushed(&message);
 	send_listeners(thread, &message);
 	message_destroy(&message);
 
 	perl_destruct(my_perl);
-	perl_free(my_perl);
-
 	mthread_destroy(thread);
+	perl_free(my_perl);
+	
 	Safefree(thread);
 	return NULL;
 }
@@ -163,6 +163,7 @@ static int S_set_sigmask(sigset_t *newmask)
 }
 #endif /* WIN32 */
 
+
 static mthread* start_thread(mthread* thread, IV stack_size) {
 #ifdef WIN32
 	thread->handle = CreateThread(NULL, (DWORD)stack_size, run_thread, (LPVOID)thread, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread->thr);
@@ -174,15 +175,15 @@ static mthread* start_thread(mthread* thread, IV stack_size) {
 
 	static pthread_attr_t attr;
 	static int attr_inited = 0;
-	static int attr_joinable = PTHREAD_CREATE_DETACHED;
+	static int attr_detached = PTHREAD_CREATE_DETACHED;
 	if (! attr_inited) {
 		pthread_attr_init(&attr);
 		attr_inited = 1;
 	}
 
 #  ifdef PTHREAD_ATTR_SETDETACHSTATE
-	/* Threads start out joinable */
-	PTHREAD_ATTR_SETDETACHSTATE(&attr, attr_joinable);
+	/* Threads start out detached */
+	PTHREAD_ATTR_SETDETACHSTATE(&attr, attr_detached);
 #  endif
 
 #  ifdef _POSIX_THREAD_ATTR_STACKSIZE
@@ -224,7 +225,7 @@ static PerlInterpreter* construct_perl() {
 	return my_perl;
 }
 
-int get_clone_number(pTHX, SV* options) {
+static int get_clone_number(pTHX, SV* options) {
 	SV** clone_number_ptr = hv_fetch((HV*)SvRV(options), "pool_size", 9, FALSE);
 	if (clone_number_ptr && SvOK(*clone_number_ptr))
 		return SvIV(*clone_number_ptr);
@@ -258,26 +259,6 @@ static unsigned get_stack_size(pTHX, SV* options) {
 	return 65536u;
 }
 
-
-mthread* S_create_thread(PerlInterpreter* self, SV* options) {
-	UV id = S_get_self(self)->id;
-	int clone_number = get_clone_number(self, options);
-	int monitor = should_monitor(self, options);
-	size_t stack_size = get_stack_size(self, options);
-
-	PerlInterpreter* my_perl = construct_perl();
-
-	mthread* thread = mthread_alloc(my_perl);
-	store_self(thread);
-	if (monitor)
-		thread_add_listener(thread->id, id);
-
-	start_thread(thread, stack_size);
-
-	PERL_SET_CONTEXT(self);
-	return thread;
-}
-
 void push_thread(pTHX, mthread* thread) {
 	PERL_SET_CONTEXT(aTHX);
 	dSP;
@@ -300,19 +281,20 @@ void S_create_push_threads(PerlInterpreter* self, SV* options, SV* startup) {
 	load_modules(aTHX, options);
 
 	mthread* thread = mthread_alloc(my_perl);
-	store_self(thread);
+	store_self(my_perl, thread);
 	if (monitor)
-		thread_add_listener(thread->id, id);
+		thread_add_listener(self, thread->id, id);
 
-	queue_enqueue_copy(&thread->queue, &to_run, NULL);
+	queue_enqueue(&thread->queue, &to_run, NULL);
 
 	push_thread(self, thread);
 	while (--clone_number) {
 		PerlInterpreter* my_clone = perl_clone(my_perl, 0);
 		mthread* thread = mthread_alloc(my_clone);
-		store_self(thread);
+		store_self(my_clone, thread);
 		if (monitor)
-			thread_add_listener(thread->id, id);
+			thread_add_listener(self, thread->id, id);
+		queue_enqueue_copy(&thread->queue, &to_run, NULL);
 		push_thread(self, thread);
 		start_thread(thread, stack_size);
 	}

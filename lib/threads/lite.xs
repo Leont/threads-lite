@@ -20,7 +20,6 @@ _create(class, options, startup)
 	SV* options;
 	SV* startup;
 	PPCODE:
-//		POPs;
 		PUTBACK;
 		create_push_threads(options, startup);
 		SPAGAIN;
@@ -65,7 +64,7 @@ send(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		UV thread_id = SvUV(SvRV(object));
 		message message;
-		message_pull_stack(&message, MARK + 2);
+		message_pull_stack(&message, MARK + 1);
 		thread_send(thread_id, &message);
 
 void monitor(object)
@@ -73,7 +72,7 @@ void monitor(object)
 	CODE:
 		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
 			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
-		thread_add_listener(SvUV(SvRV(object)), get_self()->id);
+		thread_add_listener(aTHX, SvUV(SvRV(object)), get_self()->id);
 
 MODULE = threads::lite             PACKAGE = threads::lite::queue
 
@@ -110,5 +109,5 @@ dequeue(object)
 			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
 		UV queue_id = SvUV(SvRV(object));
 		message message;
-//		queue_receive(queue, &message);
+		queue_receive(queue_id, &message);
 		message_push_stack(&message, GIMME_V);

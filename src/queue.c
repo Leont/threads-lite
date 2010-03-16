@@ -1,6 +1,7 @@
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
+#define NO_XSLOCKS
 #include "XSUB.h"
 
 #include "queue.h"
@@ -66,7 +67,9 @@ SV* S_message_load_value(pTHX_ message* message) {
 	PUTBACK;
 	call_pv("Storable::thaw", G_SCALAR);
 	SPAGAIN;
-	return POPs;
+	SV* ret = POPs;
+	PUTBACK;
+	return ret;
 }
 
 #define message_load_value(message) S_message_load_value(aTHX_ message)
@@ -75,10 +78,11 @@ void S_message_push_stack(pTHX_ message* message, U32 context) {
 	dSP;
 	switch(message->type) {
 		case STRING:
-			PUSHs(sv_2mortal(message_get_sv(message)));
+			PUSHs(sv_2mortal(newRV_noinc(message_get_sv(message))));
 			break;
 		case STORABLE: {
 			AV* values = (AV*) SvRV(message_load_value(message));
+			SPAGAIN;
 
 			if (context == G_SCALAR) {
 				SV** ret = av_fetch(values, 0, FALSE);
@@ -86,16 +90,9 @@ void S_message_push_stack(pTHX_ message* message, U32 context) {
 			}
 			else if (context == G_ARRAY) {
 				UV count = av_len(values) + 1;
-				int i;
-				for (i = 0; i < count; ++i) {
-					XPUSHs(*av_fetch(values, i, FALSE));
-				}
-//				EXTEND(SP, count);
-//				Copy(AvARRAY(values), SP, count, SV*);
-//				SP += count;
-			}
-			else {
-//				Perl_warn(aTHX_ "Pushing on void stack!");
+				EXTEND(SP, count);
+				Copy(AvARRAY(values), SP + 1, count, SV*);
+				SP += count;
 			}
 			break;
 		}
@@ -116,8 +113,8 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 			clone->string.length = origin->string.length;
 			clone->string.ptr = savepvn(origin->string.ptr, origin->string.length);
 			break;
-//		default:
-//			Perl_die(aTHX, "Unknown type in message\n");
+		default:
+			Perl_die(aTHX, "Unknown type in message\n");
 	}
 }
 
