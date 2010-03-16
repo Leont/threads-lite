@@ -19,6 +19,8 @@ typedef struct mthread {
 
 extern mthread* S_create_thread(PerlInterpreter*, SV* startup);
 #define create_thread(startup) S_create_thread(aTHX_ startup)
+extern void S_create_push_threads(PerlInterpreter*, SV* options, SV* startup);
+#define create_push_threads(options, startup) S_create_push_threads(aTHX, options, startup)
 extern mthread* clone_thread(pTHX_ IV stack_size);
 void S_store_self(pTHX_ mthread*);
 #define store_self(thread) S_store_self(aTHX_ thread)

@@ -15,23 +15,15 @@ BOOT:
 	global_init(aTHX);
 
 SV*
-_create(class, options)
+_create(class, options, startup)
 	SV* class;
 	SV* options;
-	CODE:
-		mthread* thread = create_thread(options);
-		RETVAL = newRV_noinc(newSVuv(thread->id));
-		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
-	OUTPUT:
-		RETVAL
-
-SV*
-_clone(class)
-	SV* class;
-	CODE:
-		mthread* thread = clone_thread(aTHX_ 65536);
-		RETVAL = newRV_noinc(newSVuv(thread->id));
-		sv_bless(RETVAL, gv_stashpv("threads::lite::tid", FALSE));
+	SV* startup;
+	PPCODE:
+//		POPs;
+		PUTBACK;
+		create_push_threads(options, startup);
+		SPAGAIN;
 
 void
 _receive()
@@ -50,12 +42,6 @@ _receive_nb()
 			message_push_stack(&message, GIMME_V);
 		else
 			XSRETURN_EMPTY;
-
-void
-_load_module(module)
-	SV* module;
-	CODE:
-		load_module(PERL_LOADMOD_NOIMPORT, module, NULL, NULL);
 
 SV* self()
 	CODE:

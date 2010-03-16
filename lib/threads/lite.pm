@@ -9,6 +9,7 @@ use 5.010;
 
 use base qw/Exporter/;
 use Storable 2.05 ();
+use Data::Dumper;
 
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
@@ -28,6 +29,7 @@ sub _deep_equals {
 	my ($message, $criterion) = @_;
 	return if $#{$message} < $#{$criterion};
 	for my $i (0..$#{$criterion}) {
+		no warnings 'uninitialized';
 		return if not $message->[$i] ~~ $criterion->[$i];
 	}
 	return 1;
@@ -47,33 +49,9 @@ sub _match_mailbox {
 	return;
 }
 
-sub _get_runtime {
-	my $ret;
-	while (!defined $ret) {
-		receive_table(
-			['load'] => sub {
-				my (undef, $module) = @_;
-				_load_module($module);
-			},
-			['clone'] => sub {
-				_clone_self();
-			},
-			['run'] => sub { (undef, $ret) = @_ },
-		);
-	}
-	return $ret;
-}
-
 sub spawn {
-	my ($class, $options, $args) = @_;
-	my $number = $options->{times} ||= 1;
-	my $thread = $class->_create($options);
-	for my $module (@{ $options->{modules} }) {
-		$thread->send(load => $module);
-	}
-	$thread->send('clone') while --$number;
-	$thread->send(run => $args);
-	return $thread;
+	my ($class, $options, $sub) = @_;
+	return $class->_create($options, $sub);
 }
 
 ##no critic (Subroutines::RequireFinalReturn)

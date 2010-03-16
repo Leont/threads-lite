@@ -16,7 +16,7 @@ receive_table(
 		my @arg = @_;
 		eq_or_diff \@arg, [ 'normal', 42], "Got return value 42";
 	},
-	[ 'exit' ]   => sub {
+	[ 'error' ]   => sub {
 		ok(0, 'Got return value 42');
 	},
 );
