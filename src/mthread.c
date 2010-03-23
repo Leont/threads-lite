@@ -59,7 +59,7 @@ static void xs_init(pTHX) {
 	newXS((char*)"DynaLoader::boot_DynaLoader", boot_DynaLoader, (char*)__FILE__);
 }
 
-static const char* argv[] = {"", "-e", "threads::lite::_run()"};
+static const char* argv[] = {"", "-e", "0"};
 static int argc = sizeof argv / sizeof *argv;
 
 void store_self(pTHX, mthread* thread) {
@@ -81,6 +81,16 @@ mthread* S_get_self(pTHX) {
     if (!self_sv)
         Perl_croak(aTHX_ "Can't find self thread object!");
     return (mthread*)SvPV_nolen(*self_sv);
+}
+
+static perl_mutex* get_shutdown_mutex() {
+	static int inited = 0;
+	static perl_mutex mutex;
+	if (!inited) {
+		MUTEX_INIT(&mutex);
+		inited = 1;
+	}
+	return &mutex;
 }
 
 static void* run_thread(void* arg) {
@@ -117,11 +127,16 @@ static void* run_thread(void* arg) {
 	send_listeners(thread, &message);
 	message_destroy(&message);
 
+	perl_mutex* shutdown_mutex = get_shutdown_mutex();
+	MUTEX_LOCK(shutdown_mutex);
 	perl_destruct(my_perl);
+	MUTEX_UNLOCK(shutdown_mutex);
+
 	mthread_destroy(thread);
 	perl_free(my_perl);
 	
 	Safefree(thread);
+
 	return NULL;
 }
 
@@ -259,7 +274,7 @@ static unsigned get_stack_size(pTHX, SV* options) {
 	return 65536u;
 }
 
-void push_thread(pTHX, mthread* thread) {
+static void push_thread(pTHX, mthread* thread) {
 	PERL_SET_CONTEXT(aTHX);
 	dSP;
 	SV* to_push = newRV_noinc(newSVuv(thread->id));
