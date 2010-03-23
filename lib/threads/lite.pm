@@ -121,25 +121,33 @@ This module implements threads for perl. One crucial difference with normal thre
 
 =head3 spawn($options, $sub)
 
-Spawn a new thread. It will run $sub and send all monitoring processes it's return value. $options is a hashref that can contain the following elements.
+Spawn new threads. It will run $sub and send all monitoring processes it's return value. $options is a hashref that can contain the following elements.
 
 =over 4
-
-=item monitor => 0/1
-
-If this is true, the calling process will monitor the newly spawned.
 
 =item modules => [...]
 
 Load the specified modules before running any code.
 
+=item pool_size => int
+
+Create C<pool_size> identical clones. The threads are cloned right after module load time, but before any code is run.
+
+=item monitor => 0/1
+
+If this is true, the calling process will monitor the newly spawned threads. Defaults to false.
+
+=item stack_size => int
+
+The stack sze for the newly created threads. It defaults to 64 kiB.
+
 =back
 
-$sub can be a function name or a subref. In the latter case it will be serialized, sent to the new thread. This means that any enclosed variables will probability not work as expected.
+$sub can be a function name or a subref. If it is a name, you must make sure the module it is in is loaded in the new thread. If it is a reference it will be serialized and sent to the new thread. This means that any enclosed variables will probability not work as expected.
 
 =head1 FUNCTIONS
 
-All functions are exported by default.
+All these functions are exported by default.
 
 =head2 Receiving functions
 
