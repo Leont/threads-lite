@@ -27,6 +27,13 @@ my $builder = Module::Build->new(
 	c_source            => 'src',
     add_to_cleanup      => [ 'threads-lite-*' ],
 	create_makefile_pl  => 'small',
+	meta_merge => {
+		resources       => {
+			bugtracker  => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=threads-lite',
+			repository  => 'http://github.com/Leont/threads-lite/tree',
+		},
+		keywords       => [ 'threads', 'channels' ],
+	},
 	sign                => 1,
 );
 

@@ -1,5 +1,11 @@
 Revision history for threads-lite
 
-0.01    20090817
-        First version, released on an unsuspecting world.
+0.020_002  2010-03-23
+           Documentation updates
+
+0.020_001  2010-03-22
+           Complete rewrite of thread creation routines
+
+0.010_001  2009-08-17
+           First version, released on an unsuspecting world.
 

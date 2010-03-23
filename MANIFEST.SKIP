@@ -12,3 +12,4 @@ threads-lite-.*
 ^lib/.*\.c$
 .*\.o$
 ^.ignore
+^benchmark$
