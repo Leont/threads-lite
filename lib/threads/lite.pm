@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.020_002';
+our $VERSION = '0.021';
 
 use 5.010;
 
@@ -111,7 +111,7 @@ threads::lite - Yet another threads library
 
 =head1 VERSION
 
-Version 0.020
+Version 0.021
 
 =head1 SYNOPSIS
 

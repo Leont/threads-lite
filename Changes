@@ -1,5 +1,10 @@
 Revision history for threads-lite
 
+0.021      2010-03-24
+           Fixed locking during destruction time.
+           Refactored and documented parallel_map and tids.
+           Made requirement on perl 5.10 more explicit.
+
 0.020_002  2010-03-23
            Documentation updates
 
