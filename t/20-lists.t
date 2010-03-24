@@ -3,14 +3,14 @@
 use Test::More 'no_plan';
 use Test::Differences;
 
-use threads::lite::list 'paralel_map';
+use threads::lite::list 'parallel_map';
 
 alarm 5;
 
 my @reference = map { $_ * 2} 1 .. 4;
 {
-	my @foo = paralel_map { $_ * 2 } 1..4;
+	my @foo = parallel_map { $_ * 2 } undef, 1..4;
 
-	eq_or_diff(\@foo, \@reference, "tmap { \$_ * 2 } 1..4");
+	eq_or_diff(\@foo, \@reference, "parallel_map { \$_ * 2 } 1..4");
 }
 
