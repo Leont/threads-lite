@@ -5,7 +5,7 @@ use Test::Differences;
 
 use threads::lite;
 
-my $thread = threads::lite->spawn({ load  => ['Carp'], monitor => 1 }, sub { print STDERR "# It seems to be working!\n"; 42 } );
+my $thread = threads::lite->spawn({ load  => ['Carp'], monitor => 1 }, sub { 42 } );
 
 ok(1, 'Created thread');
 
