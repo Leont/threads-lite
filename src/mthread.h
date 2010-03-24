@@ -23,3 +23,4 @@ extern mthread* clone_thread(pTHX_ IV stack_size);
 void store_self(pTHX, mthread*);
 mthread* S_get_self(pTHX);
 #define get_self() S_get_self(aTHX)
+perl_mutex* get_shutdown_mutex();

@@ -129,8 +129,8 @@ void message_destroy(message* message) {
 			Safefree(message->string.ptr);
 			Zero(message, 1, message);
 			break;
-//		default:
-//			Perl_die(aTHX, "Unknown type in message\n");
+/*		default:
+			Perl_die(aTHX, "Unknown type in message\n"); */
 	}
 }
 

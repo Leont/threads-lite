@@ -44,6 +44,19 @@ UV resource_addobject(resource* res, void* object) {
 resource threads;
 resource queues;
 
+XS(end_locker) {
+	dVAR; dXSARGS;
+	perl_mutex* mutex = get_shutdown_mutex();
+	MUTEX_LOCK(mutex);
+	XSRETURN_EMPTY;
+}
+
+void end_unlocker(pTHX_ void* ptr) {
+	perl_mutex* mutex = get_shutdown_mutex();
+	MUTEX_UNLOCK(mutex);
+	/* wait for all threads to exit? */
+}
+
 void global_init(pTHX) {
 	if (!inited) {
 		inited = TRUE;
@@ -54,8 +67,11 @@ void global_init(pTHX) {
 #  else
 		ret->thr = pthread_self();
 #  endif
-		ret->interp = NULL; // XXX
 		store_self(aTHX, ret);
+
+		/* This is a nasty trick to make sure locking is performed during part of the destruct */
+		newXS("END", end_locker, __FILE__);
+		Perl_call_atexit(aTHX_ end_unlocker, NULL);
 	}
 }
 

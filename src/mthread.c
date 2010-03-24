@@ -17,7 +17,6 @@
 #    define setjmp(x) _setjmp(x)
 #  endif
 #endif
-//XXX
 
 #ifdef WIN32
 #  include <windows.h>
@@ -77,13 +76,18 @@ void store_self(pTHX, mthread* thread) {
 }
 
 mthread* S_get_self(pTHX) {
-    SV** self_sv = hv_fetch(PL_modglobal, "threads::lite::thread", 21, FALSE);
-    if (!self_sv)
-        Perl_croak(aTHX_ "Can't find self thread object!");
-    return (mthread*)SvPV_nolen(*self_sv);
+	SV** self_sv = hv_fetch(PL_modglobal, "threads::lite::thread", 21, FALSE);
+	if (!self_sv) {
+		if (ckWARN(WARN_THREADS))
+			Perl_warn(aTHX, "Creating thread context where non existed\n");
+		mthread* ret = mthread_alloc(aTHX);
+		store_self(aTHX, ret);
+		return ret;
+	}
+	return (mthread*)SvPV_nolen(*self_sv);
 }
 
-static perl_mutex* get_shutdown_mutex() {
+perl_mutex* get_shutdown_mutex() {
 	static int inited = 0;
 	static perl_mutex mutex;
 	if (!inited) {
