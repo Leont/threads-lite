@@ -139,19 +139,43 @@ This module implements threads for perl. One crucial difference with normal thre
 
 =head2 parallel_map { block } $options, @elements
 
-Parallel_map 
+map a list using multiple threads. $options is a hashref whose keys are like in C<new>.
 
 =head2 parallel_grep { block } $options, @elements
 
-Parallel_grep 
+grep a list using multiple threads. $options is a hashref whose keys are like in C<new>.
 
-=head2 new
+=head1 METHODS
 
-Create a new parallel list processing object.
+A parallel list processing object can be created if you want to reuse your filter with other arguments.
 
-=head2 map
+=head2 new(%options)
 
-=head2 grep
+Create a new parallel list processing object. It takes three named arguments.
+
+=over 2
+
+=item * code
+
+A reference to the piece of code that should be executed, or it's name. Note that if a name is given, it's containing module must be loaded using C<modules>.
+
+=item * modules
+
+Modules that must be loaded be for the mapping or grepping.
+
+=item * threads
+
+The number of threads you want to use to do the mapping. The default is currently 4, an arbitrary number that may change in the future.
+
+=back
+
+=head2 map(@elements)
+
+Map elements in a parallel manner.
+
+=head2 grep(@elements)
+
+Grep elements in a parallel manner.
 
 =head1 AUTHOR
 
@@ -170,7 +194,6 @@ automatically be notified of progress on your bug as I make changes.
 You can find documentation for this module with the perldoc command.
 
     perldoc threads::lite::list
-
 
 You can also look for information at:
 
