@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Exporter 5.57 qw/import/;
 
-our @EXPORT_OK = qw/parallel_map/;
+our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
 use threads::lite;
 
@@ -115,6 +115,8 @@ sub DESTROY {
 	my $self = shift;
 	for my $thread (values %{ $self }) {
 		$thread->send('kill');
+		receive('exit', qr//, $thread->id);
+		delete $self->{$thread->id};
 	}
 	return;
 }
