@@ -1,5 +1,6 @@
 Build.PL
 Changes
+examples/reader.pl
 lib/threads/lite.pm
 lib/threads/lite.xs
 lib/threads/lite/list.pm
@@ -19,6 +20,7 @@ src/sync.c
 src/sync.h
 t/00-load.t
 t/10-basics.t
+t/11-input.t
 t/20-lists.t
 t/pod-coverage.t
 t/pod.t
