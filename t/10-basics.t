@@ -6,9 +6,9 @@ use warnings;
 use Test::More tests => 2;
 use Test::Differences;
 
-use threads::lite;
+use threads::lite qw/spawn receive_table/;
 
-my $thread = threads::lite->spawn({ load  => ['Carp'], monitor => 1 }, sub { 42 } );
+my $thread = spawn({ load  => ['Carp'], monitor => 1 }, sub { 42 } );
 
 ok(1, 'Created thread');
 

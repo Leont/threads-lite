@@ -6,7 +6,7 @@ use Exporter 5.57 qw/import/;
 
 our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
-use threads::lite;
+use threads::lite qw/self spawn receive receive_table/;
 
 our $VERSION = $threads::lite::VERSION;
 
@@ -48,7 +48,7 @@ sub new {
 	);
 	my @modules = ('threads::lite::list', @{ $options{modules} });
 	my %threads = map { ( $_->id => $_ ) }
-		threads::lite->spawn({ modules => \@modules, monitor => 1 , pool_size => $options{threads}}, 'threads::lite::list::_mapper' );
+		spawn({ modules => \@modules, monitor => 1 , pool_size => $options{threads}}, 'threads::lite::list::_mapper' );
 	$_->send(filter => $options{code}) for values %threads;
 	return bless \%threads, $class;
 }
