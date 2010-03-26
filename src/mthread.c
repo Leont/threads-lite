@@ -101,7 +101,9 @@ static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
 	PerlInterpreter* my_perl = thread->interp;
 
+#ifndef WIN32
 	S_set_sigmask(&thread->initial_sigmask);
+#endif
 	PERL_SET_CONTEXT(my_perl);
 
 	message to_run;
