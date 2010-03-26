@@ -129,7 +129,7 @@ threads::lite::list - Threaded list utilities
 
 =head1 VERSION
 
-Version 0.020
+Version 0.022
 
 =head1 SYNOPSIS
 

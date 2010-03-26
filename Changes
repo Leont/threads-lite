@@ -1,5 +1,17 @@
 Revision history for threads-lite
 
+0.022      2010-03-26
+           API break: made spawn a function instead of a method.
+           Hopefully fixed destuction locker.
+           Fixed bug with handling undefined $options.
+           Added dependency on Test::Difference.
+           Fixed building on Win32.
+           Export parallel_grep, check for child thread death.
+           Refactored receiving, added receive_table_nb.
+           Fixed serialization bug.
+           Added an example.
+
+
 0.021      2010-03-24
            Fixed locking during destruction time.
            Refactored and documented parallel_map and tids.

@@ -51,7 +51,7 @@ threads::lite::tid - a threads::lite thread id
 
 =head1 VERSION
 
-Version 0.010
+Version 0.022
 
 =head1 SYNOPSIS
 
