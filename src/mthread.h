@@ -17,7 +17,7 @@ typedef struct mthread {
 	} listeners;
 } mthread;
 
-extern void S_create_push_threads(PerlInterpreter*, SV* options, SV* startup);
+extern void S_create_push_threads(PerlInterpreter*, HV* options, SV* startup);
 #define create_push_threads(options, startup) S_create_push_threads(aTHX, options, startup)
 extern mthread* clone_thread(pTHX_ IV stack_size);
 void store_self(pTHX, mthread*);

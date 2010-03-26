@@ -244,22 +244,22 @@ static PerlInterpreter* construct_perl() {
 	return my_perl;
 }
 
-static int get_clone_number(pTHX, SV* options) {
-	SV** clone_number_ptr = hv_fetch((HV*)SvRV(options), "pool_size", 9, FALSE);
+static int get_clone_number(pTHX, HV* options) {
+	SV** clone_number_ptr = hv_fetch(options, "pool_size", 9, FALSE);
 	if (clone_number_ptr && SvOK(*clone_number_ptr))
 		return SvIV(*clone_number_ptr);
 	return 1;
 }
 
-static int should_monitor(pTHX, SV* options) {
-	SV** monitor_ptr = hv_fetch((HV*)SvRV(options), "monitor", 7, FALSE);
+static int should_monitor(pTHX, HV* options) {
+	SV** monitor_ptr = hv_fetch(options, "monitor", 7, FALSE);
 	if (monitor_ptr && SvOK(*monitor_ptr))
 		return SvIV(*monitor_ptr);
 	return FALSE;
 }
 
-static void load_modules(pTHX, SV* options) {
-	SV** modules_ptr = hv_fetch((HV*)SvRV(options), "modules", 7, FALSE);
+static void load_modules(pTHX, HV* options) {
+	SV** modules_ptr = hv_fetch(options, "modules", 7, FALSE);
 	if (modules_ptr && SvROK(*modules_ptr) && SvTYPE(SvRV(*modules_ptr)) == SVt_PVAV) {
 		AV* list = (AV*)SvRV(*modules_ptr);
 		I32 len = av_len(list) + 1;
@@ -271,8 +271,8 @@ static void load_modules(pTHX, SV* options) {
 	}
 }
 
-static unsigned get_stack_size(pTHX, SV* options) {
-	SV** stack_size_ptr = hv_fetch((HV*)SvRV(options), "stack_size", 10, FALSE);
+static unsigned get_stack_size(pTHX, HV* options) {
+	SV** stack_size_ptr = hv_fetch(options, "stack_size", 10, FALSE);
 	if (stack_size_ptr && SvOK(*stack_size_ptr))
 		return SvUV(*stack_size_ptr);
 	return 65536u;
@@ -287,17 +287,18 @@ static void push_thread(pTHX, mthread* thread) {
 	PUTBACK;
 }
 
-void S_create_push_threads(PerlInterpreter* self, SV* options, SV* startup) {
+void S_create_push_threads(PerlInterpreter* self, HV* options, SV* startup) {
 	UV id = S_get_self(self)->id;
 	message to_run;
 	S_message_store_value(self, &to_run, startup);
+	SvREFCNT_inc(options);
 
 	int clone_number = get_clone_number(self, options);
 	int monitor = should_monitor(self, options);
 	size_t stack_size = get_stack_size(self, options);
 
 	PerlInterpreter* my_perl = construct_perl();
-	load_modules(aTHX, options);
+	load_modules(my_perl, options);
 
 	mthread* thread = mthread_alloc(my_perl);
 	store_self(my_perl, thread);

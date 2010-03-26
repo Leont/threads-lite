@@ -49,11 +49,6 @@ sub _match_mailbox {
 	return;
 }
 
-sub spawn {
-	my ($class, $options, $sub) = @_;
-	return $class->_create($options, $sub);
-}
-
 ##no critic (Subroutines::RequireFinalReturn)
 
 sub receive {
