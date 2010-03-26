@@ -29,7 +29,6 @@ sub _deep_equals {
 	my ($message, $criterion) = @_;
 	return if $#{$message} < $#{$criterion};
 	for my $i (0..$#{$criterion}) {
-		no warnings 'uninitialized';
 		return if not $message->[$i] ~~ $criterion->[$i];
 	}
 	return 1;
@@ -56,7 +55,8 @@ sub receive {
 	if (my @ret = _match_mailbox(\@args)) {
 		return @ret;
 	}
-	while (my @next = _receive) {
+	while (1) {
+		my @next = _receive;
 		return _return_elements(@next) if _deep_equals(\@next, \@args);
 		push @message_cache, \@next;
 	}
@@ -67,13 +67,38 @@ sub receive_nb {
 	if (my @ret = _match_mailbox(\@args)) {
 		return @ret;
 	}
-	return if not my @next = _receive_nb;
-	return _return_elements(@next) if _deep_equals(\@next, \@args);
-	push @message_cache, \@next;
+	while (my @next = _receive_nb) {
+		return _return_elements(@next) if _deep_equals(\@next, \@args);
+		push @message_cache, \@next;
+	}
 	return;
 }
 
 sub receive_table {
+	my @args = @_;
+	my @table;
+
+	push @table, [ splice @args, 0, 2 ] while @args >= 2;
+
+	for my $pair (@table) {
+		if (my @ret = _match_mailbox($pair->[0])) {
+			$pair->[1]->(@ret) if defined $pair->[1];
+			return _return_elements(@ret);
+		}
+	}
+	while (1) {
+		my @next = _receive;
+		for my $pair (@table) {
+			if (_deep_equals(\@next, $pair->[0])) {
+				$pair->[1]->(@next) if defined $pair->[1];
+				return _return_elements(@next);
+			}
+		}
+		push @message_cache, \@next;
+	}
+}
+
+sub receive_table_nb {
 	my @args = @_;
 	my @table;
 
@@ -94,6 +119,7 @@ sub receive_table {
 		}
 		push @message_cache, \@next;
 	}
+	return;
 }
 
 1;
@@ -159,6 +185,10 @@ Return the first message matching pattern @pattern. If there is no such message 
 =head3 receive_table( [@pattern] => action ]...)
 
 Try to match each pattern to the message queue. The first successful pattern is used. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received.
+
+=head3 receive_table_nb( [@pattern] => action ]...)
+
+Try to match each pattern to the message queue. The first successful pattern is used. If none of the patterns match any of the messages in the queue, it return an empty list.
 
 =head2 Utility functions
 
