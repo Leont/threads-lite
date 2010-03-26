@@ -15,8 +15,7 @@ BOOT:
 	global_init(aTHX);
 
 SV*
-spawn(class, options, startup)
-	SV* class;
+spawn(options, startup)
 	SV* options;
 	SV* startup;
 	PPCODE:
