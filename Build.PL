@@ -20,6 +20,7 @@ my $builder = Module::Build->new(
 	build_requires => {
 		'Module::Build' => 0,
 		'Test::More' => 0,
+		'Test::Differences' => 0,
 	},
 	requires            => {
 		perl            => 5.010,
