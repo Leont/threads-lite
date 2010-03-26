@@ -14,8 +14,7 @@ use Data::Dumper;
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
-##no critic qw(ProhibitAutomaticExportation)
-our @EXPORT = qw/receive receive_nb receive_table self/;
+our @EXPORT_OK = qw/spawn receive receive_nb receive_table receive_table_nb self/;
 
 require threads::lite::tid;
 
@@ -136,29 +135,39 @@ Version 0.021
 
 =head1 SYNOPSIS
 
-This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
+ use threads::lite qw/receive_table/;
 
-=head1 CLASS METHODS
+ threads::lite->
+
+=head1 DESCRIPTION
+
+This module implements threads for perl. One crucial difference with normal threads is that the threads are disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
+
+=head1 FUNCTIONS
+
+All these functions are exported optionally.
+
+=head2 Utility functions
 
 =head3 spawn($options, $sub)
 
 Spawn new threads. It will run $sub and send all monitoring processes it's return value. $options is a hashref that can contain the following elements.
 
-=over 4
+=over 2
 
-=item modules => [...]
+=item * modules => [...]
 
 Load the specified modules before running any code.
 
-=item pool_size => int
+=item * pool_size => int
 
 Create C<pool_size> identical clones. The threads are cloned right after module load time, but before any code is run.
 
-=item monitor => 0/1
+=item * monitor => 0/1
 
 If this is true, the calling process will monitor the newly spawned threads. Defaults to false.
 
-=item stack_size => int
+=item * stack_size => int
 
 The stack sze for the newly created threads. It defaults to 64 kiB.
 
@@ -166,13 +175,25 @@ The stack sze for the newly created threads. It defaults to 64 kiB.
 
 $sub can be a function name or a subref. If it is a name, you must make sure the module it is in is loaded in the new thread. If it is a reference it will be serialized and sent to the new thread. This means that any enclosed variables will probability not work as expected.
 
-=head1 FUNCTIONS
+=head3 self
 
-All these functions are exported by default.
+Retreive the tid corresponding with the current thread.
 
 =head2 Receiving functions
 
-threads::lite exports by default three functions for receiving messages from the process mailbox. Each of them accepts matching patterns used to select those messages. Each of the elements in the pattern will be smartmatched against the appropriate element in the message. The message may contain more elements than the pattern, they will not be included in the matching.
+threads::lite defines four functions for receiving messages from the thread's mailbox. Each of them accepts matching patterns used to select those messages. Pattern matching works like this:
+
+=over 2
+
+=item * If the pattern contains more elements than the message, the match fails.
+
+=item * If the pattern contains more elements than the message, the superfluous elements are ignored for the match.
+
+=item * Each of the elements in the message is smartmatched against the corresponding element in the pattern. Smartmatching semantics are defined in L<perlsyn|perlsyn/<"Smart-matching-in-detail">. If an element fails, the whole match fails.
+
+=item * When a match fails, the next message on the queue is tried.
+
+=back
 
 =head3 receive(@pattern)
 
@@ -182,19 +203,13 @@ Return the first message matching pattern @pattern. If there is no such message 
 
 Return the first message matching pattern @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
 
-=head3 receive_table( [@pattern] => action ]...)
+=head3 receive_table( [@pattern] => action...)
 
-Try to match each pattern to the message queue. The first successful pattern is used. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received.
+This goes through each of the patterns until it can find one that matches a message on the queue, and call its action if it is defined. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received.
 
-=head3 receive_table_nb( [@pattern] => action ]...)
+=head3 receive_table_nb( [@pattern] => action...)
 
-Try to match each pattern to the message queue. The first successful pattern is used. If none of the patterns match any of the messages in the queue, it return an empty list.
-
-=head2 Utility functions
-
-=head3 self
-
-Retreive the tid corresponding with the current thread.
+This goes through each of the patterns until it can find one that matches a message on the queue, and call its action if it is defined. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received. If none of the patterns match any of the messages in the queue, it return an empty list.
 
 =head1 AUTHOR
 

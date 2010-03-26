@@ -65,7 +65,7 @@ Send a message to a thread. The message items may contain any data type that can
 
 =head2 id
 
-Get the numerical id of this thread.
+Get an opaque but primitive identifier for thread.
 
 =head2 monitor
 
