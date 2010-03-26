@@ -46,11 +46,8 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 
 void S_message_pull_stack(pTHX_ message* message) {
 	dSP; dMARK;
-	if (SP == MARK) {
-		if (!SvOK(*MARK) || SvROK(*MARK) || (SvPOK(*MARK) && SvUTF8(*MARK)))
-			message_store_value(message, *MARK);
-		else
-			message_set_sv(message, *MARK, STRING);
+	if (SP == MARK && SvOK(*MARK) && !SvROK(*MARK) && !(SvPOK(*MARK) && SvUTF8(*MARK))) {
+		message_set_sv(message, *MARK, STRING);
 	}
 	else {
 		SV* list = sv_2mortal((SV*)av_make(SP - MARK, MARK + 1));
