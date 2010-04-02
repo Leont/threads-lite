@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.022';
+our $VERSION = '0.023';
 
 use 5.010;
 
@@ -131,7 +131,7 @@ threads::lite - Yet another threads library
 
 =head1 VERSION
 
-Version 0.022
+Version 0.023
 
 =head1 SYNOPSIS
 
@@ -139,9 +139,9 @@ Version 0.022
  use threads::lite qw/spawn self receive receive_table/;
 
  sub child {
- 	 my $other = threads::lite::receive;
+     my $other = threads::lite::receive;
      while (<>) {
-		 chomp;
+         chomp;
          $other->send(line => $_);
      }
  }
@@ -196,7 +196,7 @@ If this is true, the calling process will monitor the newly spawned threads. Def
 
 =item * stack_size => int
 
-The stack sze for the newly created threads. It defaults to 64 kiB.
+The stack size for the newly created threads. It defaults to 64 kiB.
 
 =back
 
