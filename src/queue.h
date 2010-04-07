@@ -8,6 +8,9 @@ typedef struct {
 	} string;
 } message;
 
+void S_message_clone(pTHX_ message* origin, message* clone);
+#define message_clone(origin, clone) S_message_clone(aTHX_ origin, clone)
+
 typedef struct queue_node queue_node;
 
 typedef struct {
@@ -34,8 +37,6 @@ SV* S_message_load_value(pTHX_ message* message);
 void queue_init(message_queue*);
 void queue_destroy(message_queue*);
 void queue_enqueue(message_queue* queue, message* message, perl_mutex* lock);
-void S_queue_enqueue_copy(pTHX_ message_queue* queue, message* message, perl_mutex* lock);
-#define queue_enqueue_copy(queue, message, lock) S_queue_enqueue_copy(aTHX_ queue, message, lock)
 void queue_dequeue(message_queue* queue, message* message);
 bool queue_dequeue_nb(message_queue* queue, message* message);
 

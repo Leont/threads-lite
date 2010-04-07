@@ -180,17 +180,19 @@ void S_queue_send(pTHX_ UV queue_id, message* message) {
 	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
 }
 
-void S_send_listeners(pTHX_ mthread* thread, message* message) {
+void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 	dXCPT;
 
 	MUTEX_LOCK(&thread->lock);
 	int i;
 	for (i = 0; i < thread->listeners.head; ++i) {
+		message clone;;
 		MUTEX_LOCK(&threads.lock); // unlocked by queue_enqueue
 		UV thread_id = thread->listeners.list[i];
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
-		queue_enqueue_copy(&((mthread*)threads.objects[thread_id])->queue, message, &threads.lock);
+		message_clone(mess, &clone);
+		queue_enqueue(&((mthread*)threads.objects[thread_id])->queue, &clone, &threads.lock);
 	}
 	MUTEX_UNLOCK(&thread->lock);
 }

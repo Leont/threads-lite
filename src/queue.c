@@ -115,8 +115,6 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 	}
 }
 
-#define message_clone(origin, clone) S_message_clone(aTHX_ origin, clone)
-
 void message_destroy(message* message) {
 	switch (message->type) {
 		case EMPTY:
@@ -194,12 +192,6 @@ void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external
 
 	COND_SIGNAL(&queue->condvar);
 	MUTEX_UNLOCK(&queue->mutex);
-}
-
-void S_queue_enqueue_copy(pTHX_ message_queue* queue, message* origin, perl_mutex* external_lock) {
-	message clone;
-	message_clone(origin, &clone);
-	queue_enqueue(queue, &clone, external_lock);
 }
 
 void queue_dequeue(message_queue* queue, message* input) {

@@ -313,10 +313,13 @@ void S_create_push_threads(PerlInterpreter* self, HV* options, SV* startup) {
 	while (--clone_number) {
 		PerlInterpreter* my_clone = perl_clone(my_perl, 0);
 		mthread* thread = mthread_alloc(my_clone);
+		message clone;
+
 		store_self(my_clone, thread);
 		if (monitor)
 			thread_add_listener(self, thread->id, id);
-		queue_enqueue_copy(&thread->queue, &to_run, NULL);
+		message_clone(&to_run, &clone);
+		queue_enqueue(&thread->queue, &clone, NULL);
 		push_thread(self, thread);
 		start_thread(thread, stack_size);
 	}
