@@ -4,6 +4,7 @@
 #define NO_XSLOCKS
 #include "XSUB.h"
 
+#include "message.h"
 #include "queue.h"
 #include "mthread.h"
 #include "resources.h"

@@ -3,6 +3,7 @@
 #include "perl.h"
 #include "XSUB.h"
 
+#include "message.h"
 #include "queue.h"
 #include "mthread.h"
 #include "resources.h"
