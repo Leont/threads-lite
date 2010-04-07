@@ -22,7 +22,7 @@ typedef struct {
 	size_t size;
 } resource;
 
-S_resource_init(resource* res, UV preallocate, size_t size) {
+static S_resource_init(resource* res, UV preallocate, size_t size) {
 	MUTEX_INIT(&res->lock);
 	res->size = size;
 	res->objects = safemalloc(preallocate * size);
@@ -31,7 +31,7 @@ S_resource_init(resource* res, UV preallocate, size_t size) {
 
 #define resource_init(res, pre, type) S_resource_init(res, pre, sizeof(type))
 
-UV resource_addobject(resource* res, void* object) {
+static UV resource_addobject(resource* res, void* object) {
 	MUTEX_LOCK(&res->lock);
 	UV ret = res->current;
 	if (res->current == res->allocated)
@@ -41,25 +41,47 @@ UV resource_addobject(resource* res, void* object) {
 	return ret;
 }
 
-resource threads;
-resource queues;
+static resource threads;
+static resource queues;
 
-XS(end_locker) {
+static struct {
+	perl_mutex mutex;
+	perl_cond condvar;
+	int count;
+} counter;
+
+static void wait_for_all_other_threads() {
+	MUTEX_LOCK(&counter.mutex);
+	while (counter.count > 1) 
+		COND_WAIT(&counter.condvar, &counter.mutex);
+
+	MUTEX_UNLOCK(&counter.mutex);
+	MUTEX_DESTROY(&counter.mutex);
+	COND_DESTROY(&counter.condvar);
+}
+
+static XS(end_locker) {
 	dVAR; dXSARGS;
 	perl_mutex* mutex = get_shutdown_mutex();
 	MUTEX_LOCK(mutex);
 	XSRETURN_EMPTY;
+
+	wait_for_all_other_threads();
 }
 
-void end_unlocker() {
+static void end_unlocker() {
 	perl_mutex* mutex = get_shutdown_mutex();
 	MUTEX_UNLOCK(mutex);
-	/* wait for all threads to exit? */
 }
 
 void global_init(pTHX) {
 	if (!inited) {
 		inited = TRUE;
+
+		MUTEX_INIT(&counter.mutex);
+		COND_INIT(&counter.condvar);
+		counter.count = 0;
+
 		resource_init(&threads, 8, mthread*);
 		mthread* ret = mthread_alloc(aTHX);
 #  ifdef WIN32
@@ -77,6 +99,11 @@ void global_init(pTHX) {
 
 mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	mthread* ret;
+
+	MUTEX_LOCK(&counter.mutex);
+	counter.count++;
+	MUTEX_UNLOCK(&counter.mutex);
+
 	Newxz(ret, 1, mthread);
 	queue_init(&ret->queue);
 	UV id = resource_addobject(&threads, ret);
@@ -90,6 +117,11 @@ void mthread_destroy(mthread* thread) {
 	threads.objects[thread->id] = NULL;
 	queue_destroy(&thread->queue);
 	MUTEX_UNLOCK(&threads.lock);
+
+	MUTEX_LOCK(&counter.mutex);
+	counter.count--;
+	COND_SIGNAL(&counter.condvar);
+	MUTEX_UNLOCK(&counter.mutex);
 }
 
 static inline mthread* S_get_thread(pTHX_ UV thread_id) {
@@ -154,7 +186,7 @@ void S_send_listeners(pTHX_ mthread* thread, message* message) {
 	MUTEX_LOCK(&thread->lock);
 	int i;
 	for (i = 0; i < thread->listeners.head; ++i) {
-		MUTEX_LOCK(&threads.lock);
+		MUTEX_LOCK(&threads.lock); // unlocked by queue_enqueue
 		UV thread_id = thread->listeners.list[i];
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
