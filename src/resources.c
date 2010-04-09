@@ -84,6 +84,7 @@ void global_init(pTHX) {
 		counter.count = 0;
 
 		resource_init(&threads, 8, mthread*);
+		resource_init(&queues, 8, message_queue*);
 		mthread* ret = mthread_alloc(aTHX);
 #  ifdef WIN32
 		ret->thr = GetCurrentThreadId();
@@ -178,6 +179,26 @@ void S_queue_send(pTHX_ UV queue_id, message* message) {
 	THREAD_TRY {
 		message_queue* queue = get_queue(queue_id);
 		queue_enqueue(queue, message, &queues.lock);
+	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+}
+
+void S_queue_receive(pTHX_ UV queue_id, message* message) {
+	dXCPT;
+
+	MUTEX_LOCK(&queues.lock);
+	THREAD_TRY {
+		message_queue* queue = get_queue(queue_id);
+		queue_dequeue(queue, message, &queues.lock);
+	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+}
+
+void S_queue_receive_nb(pTHX_ UV queue_id, message* message) {
+	dXCPT;
+
+	MUTEX_LOCK(&queues.lock);
+	THREAD_TRY {
+		message_queue* queue = get_queue(queue_id);
+		queue_dequeue_nb(queue, message, &queues.lock);
 	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
 }
 

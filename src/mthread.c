@@ -108,7 +108,7 @@ static void* run_thread(void* arg) {
 	PERL_SET_CONTEXT(my_perl);
 
 	message to_run;
-	queue_dequeue(&thread->queue, &to_run);
+	queue_dequeue(&thread->queue, &to_run, NULL);
 	SV* call = SvRV(message_load_value(&to_run));
 
 	dSP;

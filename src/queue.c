@@ -69,12 +69,7 @@ void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-void queue_dequeue(message_queue* queue, message* input) {
-	MUTEX_LOCK(&queue->mutex);
-
-	while (!queue->front)
-		COND_WAIT(&queue->condvar, &queue->mutex);
-
+static void queue_shift(message_queue* queue, message* input) {
 	queue_node* front = node_shift(&queue->front);
 	Copy(&front->message, input, 1, message);
 	Zero(&front->message, 1, message);
@@ -82,21 +77,28 @@ void queue_dequeue(message_queue* queue, message* input) {
 
 	if (queue->front == NULL)
 		queue->back = NULL;
+}
+
+void queue_dequeue(message_queue* queue, message* input, perl_mutex* external_lock) {
+	MUTEX_LOCK(&queue->mutex);
+	if (external_lock)
+		MUTEX_UNLOCK(external_lock);
+
+	while (!queue->front)
+		COND_WAIT(&queue->condvar, &queue->mutex);
+
+	queue_shift(queue, input);
 
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-bool queue_dequeue_nb(message_queue* queue, message* input) {
+bool queue_dequeue_nb(message_queue* queue, message* input, perl_mutex* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
+	if (external_lock)
+		MUTEX_UNLOCK(external_lock);
 
 	if (queue->front) {
-		queue_node* front = node_shift(&queue->front);
-		Copy(&front->message, input, 1, message);
-		Zero(&front->message, 1, message);
-		node_unshift(&queue->reserve, front);
-
-		if (queue->front == NULL)
-			queue->back = NULL;
+		queue_shift(queue, input);
 
 		MUTEX_UNLOCK(&queue->mutex);
 		return TRUE;

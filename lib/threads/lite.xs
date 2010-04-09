@@ -30,7 +30,7 @@ _receive()
 	PPCODE:
 		mthread* thread = get_self();
 		message message;
-		queue_dequeue(&thread->queue, &message);
+		queue_dequeue(&thread->queue, &message, NULL);
 		message_push_stack(&message, GIMME_V);
 	
 void
@@ -38,7 +38,7 @@ _receive_nb()
 	PPCODE:
 		mthread* thread = get_self();
 		message message;
-		if (queue_dequeue_nb(&thread->queue, &message))
+		if (queue_dequeue_nb(&thread->queue, &message, NULL))
 			message_push_stack(&message, GIMME_V);
 		else
 			XSRETURN_EMPTY;
@@ -99,7 +99,7 @@ enqueue(object, ...)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		UV queue_id = SvUV(SvRV(object));
 		message message;
-		message_pull_stack(&message, MARK + 2);
+		message_pull_stack(&message, MARK + 1);
 		queue_send(queue_id, &message);
 
 void
@@ -112,3 +112,16 @@ dequeue(object)
 		message message;
 		queue_receive(queue_id, &message);
 		message_push_stack(&message, GIMME_V);
+
+void
+dequeue_nb(object)
+	SV* object;
+	PPCODE:
+		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::queue"))
+			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
+		UV queue_id = SvUV(SvRV(object));
+		message message;
+		if (queue_receive_nb(queue_id, &message))
+			message_push_stack(&message, GIMME_V);
+		else
+			XSRETURN_EMPTY;
