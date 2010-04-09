@@ -1,5 +1,12 @@
 Revision history for threads-lite
 
+0.024      2010-04-09
+           Restored message queues
+           Added thread waiter and counter
+
+0.023      2010-04-02
+           Fixed dependencies
+
 0.022      2010-03-26
            API break: made spawn a function instead of a method.
            Hopefully fixed destuction locker.
