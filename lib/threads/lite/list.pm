@@ -8,7 +8,7 @@ our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
 use threads::lite qw/self spawn receive receive_table/;
 
-our $VERSION = 0.023;
+our $VERSION = 0.024;
 
 our $THREADS = 4;
 
@@ -129,7 +129,7 @@ threads::lite::list - Threaded list utilities
 
 =head1 VERSION
 
-Version 0.023
+Version 0.024
 
 =head1 SYNOPSIS
 
