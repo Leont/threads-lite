@@ -63,11 +63,12 @@ static void wait_for_all_other_threads() {
 
 static XS(end_locker) {
 	dVAR; dXSARGS;
+
+	wait_for_all_other_threads();
+
 	perl_mutex* mutex = get_shutdown_mutex();
 	MUTEX_LOCK(mutex);
 	XSRETURN_EMPTY;
-
-	wait_for_all_other_threads();
 }
 
 static void end_unlocker() {
