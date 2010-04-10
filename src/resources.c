@@ -20,23 +20,21 @@ typedef struct {
 	UV current;
 	UV allocated;
 	void** objects;
-	size_t size;
 } resource;
 
-static S_resource_init(resource* res, UV preallocate, size_t size) {
+static S_resource_init(resource* res, UV preallocate) {
 	MUTEX_INIT(&res->lock);
-	res->size = size;
-	res->objects = safemalloc(preallocate * size);
+	res->objects = safemalloc(preallocate * sizeof(void*));
 	res->allocated = preallocate;
 }
 
-#define resource_init(res, pre, type) S_resource_init(res, pre, sizeof(type))
+#define resource_init(res, pre) S_resource_init(res, pre)
 
 static UV resource_addobject(resource* res, void* object) {
 	MUTEX_LOCK(&res->lock);
 	UV ret = res->current;
 	if (res->current == res->allocated)
-		res->objects = saferealloc(res->objects, res->size * (res->allocated *=2));
+		res->objects = saferealloc(res->objects, sizeof(void*) * (res->allocated *=2));
 	res->objects[res->current++] = object;
 	MUTEX_UNLOCK(&res->lock);
 	return ret;
@@ -84,8 +82,8 @@ void global_init(pTHX) {
 		COND_INIT(&counter.condvar);
 		counter.count = 0;
 
-		resource_init(&threads, 8, mthread*);
-		resource_init(&queues, 8, message_queue*);
+		resource_init(&threads, 8);
+		resource_init(&queues, 8);
 		mthread* ret = mthread_alloc(aTHX);
 #  ifdef WIN32
 		ret->thr = GetCurrentThreadId();
