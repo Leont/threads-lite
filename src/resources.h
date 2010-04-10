@@ -13,5 +13,5 @@ void S_send_listeners(pTHX_ mthread* thread, message* message);
 #define thread_send(id, mess) S_thread_send(aTHX_ id, mess);
 #define queue_send(id, mess) S_queue_send(aTHX_ id, mess);
 #define queue_receive(id, mess) S_queue_receive(aTHX_ id, mess);
-#define queue_receive_nb(id, mess) S_queue_receive_nb(aTHX_ id, mess);
+#define queue_receive_nb(id, mess) S_queue_receive_nb(aTHX_ id, mess)
 #define send_listeners(thread, message) S_send_listeners(aTHX_ thread, message)
