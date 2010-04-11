@@ -1,22 +1,15 @@
-enum lock_mode { READ_LOCK, WRITE_LOCK };
+typedef struct {
+	int count;
+} spin_lock_t;
+
+void spin_lock(spin_lock_t* lock);
+void spin_unlock(spin_lock_t* lock);
 
 typedef struct {
-    perl_mutex lock;
-    perl_cond read_var;
-    perl_cond write_var;
-    size_t readers;
-	enum lock_mode mode;
-} readwrite;
+	int count;
+} shared_lock_t;
 
-readwrite* readwrite_new();
-
-typedef struct {
-	perl_mutex lock;
-    perl_cond cond;
-	IV value;
-} semaphore;
-
-semaphore* semaphore_new(IV);
-void semaphore_up(semaphore*);
-void semaphore_down(semaphore*);
-IV semaphore_value(semaphore*);
+void lock_shared(shared_lock_t* lock);
+void unlock_shared(shared_lock_t* lock);
+void lock_exclusive(shared_lock_t* lock);
+void unlock_exclusive(shared_lock_t* lock);

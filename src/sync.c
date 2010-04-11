@@ -1,46 +1,45 @@
-#define PERL_NO_GET_CONTEXT
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
-
+#include <stdlib.h>
 #include "sync.h"
 
-readwrite* readwrite_new() {
-    readwrite* ret;
-    Newxz(ret, 1, readwrite);
-    MUTEX_INIT(&ret->lock);
-    COND_INIT(&ret->read_var);
-    COND_INIT(&ret->write_var);
-	return ret;
+#define atomic_add(address, value) __sync_add_and_fetch(address, value)
+#define atomic_sub(address, value) __sync_sub_and_fetch(address, value)
+#define atomic_replace(address, old_value, new_value) __sync_bool_compare_and_swap(address, old_value, new_value)
+
+void spin_lock(spin_lock_t* lock) {
+	do {
+		while (lock->count);
+	} while (!atomic_replace(&lock->count, 0, 1));
 }
 
-semaphore* semaphore_new(IV value) {
-	semaphore* ret;
-	Newxz(ret, 1, semaphore);
-	MUTEX_INIT(&ret->lock);
-	COND_INIT(&ret->cond);
-	ret->value = value;
-	return ret;
+void spin_unlock(spin_lock_t* lock) {
+	atomic_replace(&lock->count, 1, 0);
 }
 
-void semaphore_up(semaphore* sem) {
-	MUTEX_LOCK(&sem->lock);
-	if (++sem->value > 0)
-		COND_BROADCAST(&sem->cond);
-	MUTEX_UNLOCK(&sem->lock);
+void lock_shared(shared_lock_t* lock) {
+	int value;
+	redo:
+		value = lock->count;
+	if (value < 0)
+		goto redo;
+	if (!atomic_replace(&lock->count, value, value+1))
+		goto redo;
 }
 
-void semaphore_down(semaphore* sem) {
-	MUTEX_LOCK(&sem->lock);
-	while (sem->value <= 0)
-		COND_WAIT(&sem->cond, &sem->lock);
-	--sem->value;
-	MUTEX_UNLOCK(&sem->lock);
+void unlock_shared(shared_lock_t* lock) {
+	atomic_sub(&lock->count, 1);
 }
 
-IV semaphore_value(semaphore* sem) {
-	MUTEX_LOCK(&sem->lock);
-	IV ret = sem->value;
-	MUTEX_UNLOCK(&sem->lock);
-	return ret;
+void lock_exclusive(shared_lock_t* lock) {
+	int value;
+	redo:
+		value = lock->count;
+	if (value > 0)
+		goto redo;
+	if (!atomic_replace(&lock->count, 0, -1))
+		goto redo;
+}
+
+void unlock_exclusive(shared_lock_t* lock) {
+	if (!atomic_replace(&lock->count, -1, 0))
+		abort();
 }
