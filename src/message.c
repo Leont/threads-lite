@@ -44,10 +44,32 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 	PUTBACK;
 }
 
+static inline int S_is_simple(pTHX_ SV* value) {
+	return SvOK(value) && !SvROK(value) && !(SvPOK(value) && SvUTF8(value));
+}
+#define is_simple(value) S_is_simple(aTHX_ value)
+
+static inline int S_are_simple(pTHX_ SV** begin, SV** end) {
+	SV** current;
+	for(current = begin; current <= end; current++)
+		if (! is_simple(*current))
+			return FALSE;
+	return TRUE;
+}
+
+#define are_simple(begin, end) S_are_simple(aTHX_ begin, end)
+
+static const char pack_template[] = "(I/a)*";
+
 void S_message_pull_stack(pTHX_ message* message) {
 	dSP; dMARK;
-	if (SP == MARK && SvOK(*MARK) && !SvROK(*MARK) && !(SvPOK(*MARK) && SvUTF8(*MARK))) {
-		message_set_sv(message, *MARK, STRING);
+	if (SP == MARK && is_simple(*SP)) {
+		message_set_sv(message, MARK[0], STRING);
+	}
+	else if (are_simple(MARK + 1, SP)) {
+		SV* tmp = sv_2mortal(newSVpvn("", 0));
+		packlist(tmp, pack_template, pack_template + sizeof pack_template - 1, MARK + 1, SP + 1);
+		message_set_sv(message, tmp, PACKED);
 	}
 	else {
 		SV* list = sv_2mortal((SV*)av_make(SP - MARK, MARK + 1));
@@ -75,6 +97,15 @@ void S_message_push_stack(pTHX_ message* message, U32 context) {
 		case STRING:
 			PUSHs(sv_2mortal(newRV_noinc(message_get_sv(message))));
 			break;
+		case PACKED: {
+			SV* mess = message_get_sv(message);
+			STRLEN len;
+			const char* packed = SvPV(mess, len);
+			PUTBACK;
+			unpackstring(pack_template, pack_template + sizeof pack_template - 1, packed, packed + len, 0);
+			SPAGAIN;
+			break;
+		}
 		case STORABLE: {
 			AV* values = (AV*) SvRV(message_load_value(message));
 			SPAGAIN;
@@ -104,6 +135,7 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 		case EMPTY:
 			break;
 		case STRING:
+		case PACKED:
 		case STORABLE:
 			clone->string.length = origin->string.length;
 			clone->string.ptr = savepvn(origin->string.ptr, origin->string.length);

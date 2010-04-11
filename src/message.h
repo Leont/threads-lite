@@ -1,4 +1,4 @@
-enum message_type { EMPTY = 0, STRING = 1, STORABLE = 2 };
+enum message_type { EMPTY, STRING, PACKED, STORABLE };
 
 typedef struct {
 	enum message_type type;
