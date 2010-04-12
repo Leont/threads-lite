@@ -1,6 +1,6 @@
 typedef struct mthread {
 	PerlInterpreter* interp;
-	perl_mutex lock;
+	spin_lock_t lock;
 	message_queue queue;
 	UV id;
 #ifndef WIN32
