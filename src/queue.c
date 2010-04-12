@@ -3,6 +3,7 @@
 #include "perl.h"
 
 #include "message.h"
+#include "sync.h"
 #include "queue.h"
 
 /*
@@ -47,11 +48,11 @@ void queue_init(message_queue* queue) {
 	COND_INIT(&queue->condvar);
 }
 
-void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external_lock) {
+void queue_enqueue(message_queue* queue, message* message_, shared_lock_t* external_lock) {
 	queue_node* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
-		MUTEX_UNLOCK(external_lock);
+		unlock_shared(external_lock);
 
 	if (queue->reserve)
 		new_entry = node_shift(&queue->reserve);
@@ -80,10 +81,10 @@ static void queue_shift(message_queue* queue, message* input) {
 		queue->back = NULL;
 }
 
-void queue_dequeue(message_queue* queue, message* input, perl_mutex* external_lock) {
+void queue_dequeue(message_queue* queue, message* input, shared_lock_t* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
-		MUTEX_UNLOCK(external_lock);
+		unlock_shared(external_lock);
 
 	while (!queue->front)
 		COND_WAIT(&queue->condvar, &queue->mutex);
@@ -93,10 +94,10 @@ void queue_dequeue(message_queue* queue, message* input, perl_mutex* external_lo
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-bool queue_dequeue_nb(message_queue* queue, message* input, perl_mutex* external_lock) {
+bool queue_dequeue_nb(message_queue* queue, message* input, shared_lock_t* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
-		MUTEX_UNLOCK(external_lock);
+		unlock_shared(external_lock);
 
 	if (queue->front) {
 		queue_shift(queue, input);

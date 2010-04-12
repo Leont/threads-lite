@@ -1,3 +1,5 @@
+#include <semaphore.h>
+
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
@@ -5,6 +7,7 @@
 #include "XSUB.h"
 
 #include "message.h"
+#include "sync.h"
 #include "queue.h"
 #include "mthread.h"
 #include "resources.h"
@@ -16,14 +19,14 @@
 bool inited = 0;
 
 typedef struct {
-	perl_mutex lock;
+	shared_lock_t lock;
 	UV current;
 	UV allocated;
 	void** objects;
 } resource;
 
 static S_resource_init(resource* res, UV preallocate) {
-	MUTEX_INIT(&res->lock);
+	lock_init(&res->lock);
 	res->objects = PerlMemShared_calloc(preallocate, sizeof(void*));
 	res->allocated = preallocate;
 }
@@ -31,13 +34,12 @@ static S_resource_init(resource* res, UV preallocate) {
 #define resource_init(res, pre) S_resource_init(res, pre)
 
 static UV resource_addobject(resource* res, void* object) {
-	UV ret;
-	MUTEX_LOCK(&res->lock);
-	ret = res->current;
+	UV ret = res->current;
+	lock_exclusive(&res->lock);
 	if (res->current == res->allocated)
 		res->objects = PerlMemShared_realloc(res->objects, sizeof(void*) * (res->allocated *=2));
 	res->objects[res->current++] = object;
-	MUTEX_UNLOCK(&res->lock);
+	unlock_exclusive(&res->lock);
 	return ret;
 }
 
@@ -45,26 +47,22 @@ static resource threads;
 static resource queues;
 
 static struct {
-	perl_mutex mutex;
-	perl_cond condvar;
-	int count;
-} counter;
+	atomic_counter counter;
+	sem_t semaphore;
+} thread_waiter;
 
-static void wait_for_all_other_threads() {
-	MUTEX_LOCK(&counter.mutex);
-	while (counter.count > 1) 
-		COND_WAIT(&counter.condvar, &counter.mutex);
-
-	MUTEX_UNLOCK(&counter.mutex);
-	MUTEX_DESTROY(&counter.mutex);
-	COND_DESTROY(&counter.condvar);
+static void wait_for_all_other_threads(mthread* self) {
+	mthread_destroy(self);
+	sem_wait(&thread_waiter.semaphore);
+	sem_destroy(&thread_waiter.semaphore);
 }
 
 static XS(end_locker) {
 	dVAR; dXSARGS;
 	perl_mutex* mutex;
 
-	wait_for_all_other_threads();
+	mthread* self = get_self();
+	wait_for_all_other_threads(self);
 
 	mutex = get_shutdown_mutex();
 	MUTEX_LOCK(mutex);
@@ -82,9 +80,8 @@ void global_init(pTHX) {
 
 		inited = TRUE;
 
-		MUTEX_INIT(&counter.mutex);
-		COND_INIT(&counter.condvar);
-		counter.count = 0;
+		counter_init(&thread_waiter.counter, 0);
+		sem_init(&thread_waiter.semaphore, 0, 0);
 
 		resource_init(&threads, 8);
 		resource_init(&queues, 8);
@@ -100,9 +97,7 @@ void global_init(pTHX) {
 mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	mthread* ret;
 
-	MUTEX_LOCK(&counter.mutex);
-	counter.count++;
-	MUTEX_UNLOCK(&counter.mutex);
+	counter_inc(&thread_waiter.counter);
 
 	ret = PerlMemShared_calloc(1, sizeof *ret);
 	queue_init(&ret->queue);
@@ -113,17 +108,13 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 }
 
 void mthread_destroy(mthread* thread) {
-	MUTEX_LOCK(&threads.lock);
+	lock_exclusive(&threads.lock);
 	threads.objects[thread->id] = NULL;
 	queue_destroy(&thread->queue);
-	MUTEX_UNLOCK(&threads.lock);
+	unlock_exclusive(&threads.lock);
 
-	MUTEX_DESTROY(&thread->lock);
-
-	MUTEX_LOCK(&counter.mutex);
-	counter.count--;
-	COND_SIGNAL(&counter.condvar);
-	MUTEX_UNLOCK(&counter.mutex);
+	if (counter_dec(&thread_waiter.counter) == 0)
+		sem_post(&thread_waiter.semaphore);
 }
 
 static inline mthread* S_get_thread(pTHX_ UV thread_id) {
@@ -165,41 +156,41 @@ static inline message_queue* S_get_queue(pTHX_ UV queue_id) {
 void S_thread_send(pTHX_ UV thread_id, message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&threads.lock);
+	lock_shared(&threads.lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
 		queue_enqueue(&thread->queue, message, &threads.lock);
-	} THREAD_CATCH( MUTEX_UNLOCK(&threads.lock) );
+	} THREAD_CATCH( unlock_shared(&threads.lock) );
 }
 
 void S_queue_send(pTHX_ UV queue_id, message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&queues.lock);
+	lock_shared(&queues.lock);
 	THREAD_TRY {
 		message_queue* queue = get_queue(queue_id);
 		queue_enqueue(queue, message, &queues.lock);
-	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+	} THREAD_CATCH( unlock_shared(&queues.lock) );
 }
 
 void S_queue_receive(pTHX_ UV queue_id, message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&queues.lock);
+	lock_shared(&queues.lock);
 	THREAD_TRY {
 		message_queue* queue = get_queue(queue_id);
 		queue_dequeue(queue, message, &queues.lock);
-	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+	} THREAD_CATCH( unlock_shared(&queues.lock) );
 }
 
 void S_queue_receive_nb(pTHX_ UV queue_id, message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&queues.lock);
+	lock_shared(&queues.lock);
 	THREAD_TRY {
 		message_queue* queue = get_queue(queue_id);
 		queue_dequeue_nb(queue, message, &queues.lock);
-	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+	} THREAD_CATCH( unlock_shared(&queues.lock) );
 }
 
 void S_send_listeners(pTHX_ mthread* thread, message* mess) {
@@ -210,7 +201,7 @@ void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 	for (i = 0; i < thread->listeners.head; ++i) {
 		message clone;
 		UV thread_id;
-		MUTEX_LOCK(&threads.lock); /* unlocked by queue_enqueue */
+		lock_shared(&threads.lock); // unlocked by queue_enqueue
 		thread_id = thread->listeners.list[i];
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
@@ -225,7 +216,7 @@ void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 void thread_add_listener(pTHX, UV talker, UV listener) {
 	dXCPT;
 
-	MUTEX_LOCK(&threads.lock);
+	lock_shared(&threads.lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(talker);
 		if (thread->listeners.alloc == thread->listeners.head) {
@@ -233,6 +224,6 @@ void thread_add_listener(pTHX, UV talker, UV listener) {
 			thread->listeners.list = PerlMemShared_realloc(thread->listeners.list, sizeof(IV) * thread->listeners.alloc);
 		}
 		thread->listeners.list[thread->listeners.head++] = listener;
-	} THREAD_FINALLY( MUTEX_UNLOCK(&threads.lock) );
+	} THREAD_FINALLY( unlock_shared(&threads.lock) );
 }
 

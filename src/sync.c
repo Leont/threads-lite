@@ -52,19 +52,10 @@ void unlock_exclusive(shared_lock_t* lock) {
 
 void counter_init(atomic_counter* counter, int value) {
 	counter->counter = value;
-	sem_init(&counter->waiter, 0, 0);
 }
-void counter_inc(atomic_counter* counter) {
-	atomic_add(&counter->counter, 1);
+int counter_inc(atomic_counter* counter) {
+	return atomic_add(&counter->counter, 1);
 }
-void counter_dec(atomic_counter* counter) {
-	if (atomic_sub(&counter->counter, 1) == 0)
-		sem_post(&counter->waiter);
-}
-void counter_wait(atomic_counter* counter) {
-	if (atomic_sub(&counter, 1) != 0)
-		sem_wait(&counter->waiter);
-}
-void counter_destroy(atomic_counter* counter) {
-	sem_destroy(&counter->waiter);
+int counter_dec(atomic_counter* counter) {
+	return atomic_sub(&counter->counter, 1);
 }

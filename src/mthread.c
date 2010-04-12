@@ -5,6 +5,7 @@
 #include "XSUB.h"
 
 #include "message.h"
+#include "sync.h"
 #include "queue.h"
 #include "mthread.h"
 #include "resources.h"

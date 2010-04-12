@@ -10,7 +10,7 @@ typedef struct {
 
 void queue_init(message_queue*);
 void queue_destroy(message_queue*);
-void queue_enqueue(message_queue* queue, message* message, perl_mutex* lock);
-void queue_dequeue(message_queue* queue, message* message, perl_mutex* lock);
-bool queue_dequeue_nb(message_queue* queue, message* message, perl_mutex* lock);
+void queue_enqueue(message_queue* queue, message* message, shared_lock_t* lock);
+void queue_dequeue(message_queue* queue, message* message, shared_lock_t* lock);
+bool queue_dequeue_nb(message_queue* queue, message* message, shared_lock_t* lock);
 
