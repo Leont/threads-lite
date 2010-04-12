@@ -42,4 +42,8 @@ my $builder = Module::Build->new(
 	sign                => 1,
 );
 
+if ($^O eq 'solaris' or $^O eq 'linux') {
+	$builder->extra_linker_flags('-lrt');
+}
+
 $builder->create_build_script();
