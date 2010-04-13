@@ -61,7 +61,7 @@ static inline int S_are_simple(pTHX_ SV** begin, SV** end) {
 
 static const char pack_template[] = "(I/a)*";
 
-void S_message_pull_stack(pTHX_ message* message) {
+void S_message_from_stack(pTHX_ message* message) {
 	dSP; dMARK;
 	if (SP == MARK && is_simple(*SP)) {
 		message_set_sv(message, MARK[0], STRING);
@@ -91,7 +91,7 @@ SV* S_message_load_value(pTHX_ message* message) {
 	return ret;
 }
 
-void S_message_push_stack(pTHX_ message* message, U32 context) {
+void S_message_to_stack(pTHX_ message* message, U32 context) {
 	dSP;
 	switch(message->type) {
 		case STRING:

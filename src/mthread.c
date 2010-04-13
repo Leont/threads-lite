@@ -130,7 +130,7 @@ static void* run_thread(void* arg) {
 		PUSHs(ERRSV);
 	}
 	message message;
-	message_pull_stack_pushed(&message);
+	message_from_stack_pushed(&message);
 	send_listeners(thread, &message);
 	message_destroy(&message);
 
