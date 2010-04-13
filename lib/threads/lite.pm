@@ -47,6 +47,11 @@ sub _match_mailbox {
 	return;
 }
 
+sub _push_mailbox {
+	my $next = shift;
+	push @message_cache, $next;
+}
+
 ##no critic (Subroutines::RequireFinalReturn)
 
 sub receive {
@@ -57,7 +62,7 @@ sub receive {
 	while (1) {
 		my @next = _receive;
 		return _return_elements(@next) if _deep_equals(\@next, \@args);
-		push @message_cache, \@next;
+		_push_mailbox(\@next);
 	}
 }
 
@@ -68,7 +73,7 @@ sub receive_nb {
 	}
 	while (my @next = _receive_nb) {
 		return _return_elements(@next) if _deep_equals(\@next, \@args);
-		push @message_cache, \@next;
+		_push_mailbox(\@next);
 	}
 	return;
 }
@@ -93,7 +98,7 @@ sub receive_table {
 				return _return_elements(@next);
 			}
 		}
-		push @message_cache, \@next;
+		_push_mailbox(\@next);
 	}
 }
 
@@ -116,7 +121,7 @@ sub receive_table_nb {
 				return _return_elements(@next);
 			}
 		}
-		push @message_cache, \@next;
+		_push_mailbox(\@next);
 	}
 	return;
 }
@@ -127,7 +132,7 @@ __END__
 
 =head1 NAME
 
-threads::lite - Yet another threads library
+threads::lite - Erlang style threading library
 
 =head1 VERSION
 
