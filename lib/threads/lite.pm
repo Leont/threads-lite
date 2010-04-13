@@ -7,7 +7,7 @@ our $VERSION = '0.025';
 
 use 5.010;
 
-use base qw/Exporter/;
+use Exporter 5.57 qw/import/;
 use Storable 2.05 ();
 use Data::Dumper;
 

@@ -26,6 +26,7 @@ my $builder = Module::Build->new(
 	},
 	requires            => {
 		perl            => 5.010,
+		Exporter        => 5.57,
 		Storable        => 2.05,
 	},
 	c_source            => 'src',
