@@ -16,8 +16,7 @@ int S_deep_equals(pTHX_ SV* entry, SV* pattern) {
 	PUTBACK;
 	call_pv("threads::lite::_deep_equals", G_SCALAR);
 	SPAGAIN;
-	SV* ret = POPs;
-	return SvTRUE(ret);
+	return POPi;
 }
 #define deep_equals(entry, pattern) S_deep_equals(aTHX_ entry, pattern)
 
@@ -78,9 +77,11 @@ SV*
 spawn(options, startup)
 	SV* options;
 	SV* startup;
+	INIT:
+		HV* real_options;
 	PPCODE:
 		PUTBACK;
-		HV* real_options = SvROK(options) && SvTYPE(SvRV(options)) == SVt_PVHV ? (HV*) SvRV(options) : (HV*)sv_2mortal((SV*)newHV());
+		real_options = SvROK(options) && SvTYPE(SvRV(options)) == SVt_PVHV ? (HV*) SvRV(options) : (HV*)sv_2mortal((SV*)newHV());
 		create_push_threads(real_options, startup);
 		SPAGAIN;
 
@@ -152,8 +153,6 @@ _return_elements(arg)
 void
 _match_mailbox(criterion)
 	SV* criterion;
-	INIT:
-		int ret;
 	PPCODE:
 		PUTBACK;
 		match_mailbox(criterion, GIMME_V);
@@ -168,11 +167,13 @@ _push_mailbox(arg)
 void
 send_to(tid, ...)
 	SV* tid;
+	INIT:
+		message message;
+		UV thread_id;
 	CODE:
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
-		UV thread_id = SvUV(tid);
-		message message;
+		thread_id = SvUV(tid);
 		message_from_stack(&message, MARK + 1);
 		thread_send(thread_id, &message);
 
@@ -183,21 +184,19 @@ PROTOTYPES: DISABLED
 void
 send(object, ...)
 	SV* object;
+	INIT:
+		message message;
+		UV thread_id;
 	CODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
-		UV thread_id = SvUV(SvRV(object));
-		message message;
+		thread_id = SvUV(SvRV(object));
 		message_from_stack(&message, MARK + 1);
 		thread_send(thread_id, &message);
 
 void monitor(object)
 	SV* object;
 	CODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::tid"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a thread object\n");
 		thread_add_listener(aTHX, SvUV(SvRV(object)), get_self()->id);
 
 MODULE = threads::lite             PACKAGE = threads::lite::queue
@@ -207,8 +206,10 @@ PROTOTYPES: DISABLED
 SV*
 new(class)
 	SV* class;
+	INIT:
+		UV queue_id;
 	CODE:
-		UV queue_id = queue_alloc();
+		queue_id = queue_alloc();
 		RETVAL = newRV_noinc(newSVuv(queue_id));
 		sv_bless(RETVAL, gv_stashsv(class, FALSE));
 	OUTPUT:
@@ -217,35 +218,35 @@ new(class)
 void
 enqueue(object, ...)
 	SV* object;
+	INIT:
+		message message;
+		UV queue_id;
 	CODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::queue"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
-		UV queue_id = SvUV(SvRV(object));
-		message message;
+		queue_id = SvUV(SvRV(object));
 		message_from_stack(&message, MARK + 1);
 		queue_send(queue_id, &message);
 
 void
 dequeue(object)
 	SV* object;
-	PPCODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::queue"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
-		UV queue_id = SvUV(SvRV(object));
+	INIT:
 		message message;
+		UV queue_id;
+	PPCODE:
+		queue_id = SvUV(SvRV(object));
 		queue_receive(queue_id, &message);
 		message_to_stack(&message, GIMME_V);
 
 void
 dequeue_nb(object)
 	SV* object;
-	PPCODE:
-		if (!sv_isobject(object) || !sv_derived_from(object, "threads::lite::queue"))
-			Perl_croak(aTHX_ "Something is very wrong, this is not a queue object\n");
-		UV queue_id = SvUV(SvRV(object));
+	INIT:
 		message message;
+		UV queue_id;
+	PPCODE:
+		queue_id = SvUV(SvRV(object));
 		if (queue_receive_nb(queue_id, &message))
 			message_to_stack(&message, GIMME_V);
 		else

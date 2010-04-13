@@ -28,7 +28,7 @@ sub _deep_equals {
 	my ($message, $criterion) = @_;
 	return if $#{$message} < $#{$criterion};
 	for my $i (0..$#{$criterion}) {
-		return if not $message->[$i] ~~ $criterion->[$i];
+		return 0 if not $message->[$i] ~~ $criterion->[$i];
 	}
 	return 1;
 }
