@@ -74,6 +74,9 @@ void store_self(pTHX, mthread* thread) {
 	SV* self = newRV_noinc(newSVuv(thread->id));
 	sv_bless(self, gv_stashpv("threads::lite::tid", TRUE));
 	hv_store(PL_modglobal, "threads::lite::self", 19, self, 0);
+
+	AV* message_cache = newAV();
+	hv_store(PL_modglobal, "threads::lite::message_cache", 28, message_cache, 0);
 }
 
 mthread* S_get_self(pTHX) {

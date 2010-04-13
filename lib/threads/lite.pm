@@ -33,20 +33,6 @@ sub _deep_equals {
 	return 1;
 }
 
-sub _match_mailbox {
-	my ($criterion) = @_;
-	for my $i (0..$#message_cache) {
-		next if not _deep_equals($message_cache[$i], $criterion);
-		return @{ splice @message_cache, $i, 1 };
-	}
-	return;
-}
-
-sub _push_mailbox {
-	my $next = shift;
-	push @message_cache, $next;
-}
-
 ##no critic (Subroutines::RequireFinalReturn)
 
 sub receive {

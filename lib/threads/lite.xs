@@ -8,19 +8,61 @@
 #include "mthread.h"
 #include "resources.h"
 
-void S_return_elements(pTHX_ AV* values, U32 context) {
+int S_deep_equals(pTHX_ SV* entry, SV* pattern) {
 	dSP;
+	PUSHMARK(SP);
+	XPUSHs(entry);
+	XPUSHs(pattern);
+	PUTBACK;
+	call_pv("threads::lite::_deep_equals", G_SCALAR);
+	SPAGAIN;
+	SV* ret = POPs;
+	return SvTRUE(ret);
+}
+#define deep_equals(entry, pattern) S_deep_equals(aTHX_ entry, pattern)
+
+int S_match_mailbox(pTHX_ SV* criterion, U32 context) {
+	dSP;
+	AV* cache = (AV*)*hv_fetch(PL_modglobal, "threads::lite::message_cache", 28, 0);
+	SV** cache_raw = AvARRAY(cache);
+	SSize_t last = av_len(cache);
+	SSize_t counter;
+	for(counter = 0; counter <= last; counter++) {
+		if (deep_equals(cache_raw[counter], criterion)) {
+			SV* ret = cache_raw[counter];
+			Move(cache_raw + counter + 1, cache_raw + counter, last - counter, SV*);
+			AvFILLp(cache)--;
+			return _return_elements((AV*)SvRV(ret), context);
+		}
+	}
+	return 0;
+}
+#define match_mailbox(entry, context) S_match_mailbox(aTHX_ entry, context)
+
+void S_push_mailbox(pTHX_ SV* entry) {
+	AV* cache = (AV*)*hv_fetch(PL_modglobal, "threads::lite::message_cache", 28, 0);
+	SV* tmp = newRV_noinc((SV*)entry);
+	SvREFCNT_inc_nn(tmp);
+	av_push(cache, tmp);
+}
+#define push_mailbox(entry) S_push_mailbox(aTHX_ entry)
+
+int S_return_elements(pTHX_ AV* values, U32 context) {
+	dSP;
+	UV count;
 	if (context == G_SCALAR) {
 		SV** ret = av_fetch(values, 0, FALSE);
 		PUSHs(ret ? *ret : &PL_sv_undef);
+		count = 1;
 	}
 	else if (context == G_ARRAY) {
-		UV count = av_len(values) + 1;
+		count = av_len(values) + 1;
 		EXTEND(SP, count);
 		Copy(AvARRAY(values), SP + 1, count, SV*);
 		SP += count;
 	}
 	PUTBACK;
+	return count;
 }
 
 #define return_elements(entry, context) S_return_elements(aTHX_ entry, context)
@@ -75,6 +117,22 @@ _return_elements(arg)
 		PUTBACK;
 		return_elements((AV*)SvRV(arg), GIMME_V);
 		SPAGAIN;
+
+void
+_match_mailbox(criterion)
+	SV* criterion;
+	INIT:
+		int ret;
+	PPCODE:
+		PUTBACK;
+		match_mailbox(criterion, GIMME_V);
+		SPAGAIN;
+
+void
+_push_mailbox(arg)
+	SV* arg;
+	CODE:
+		push_mailbox(arg);
 
 void
 send_to(tid, ...)
