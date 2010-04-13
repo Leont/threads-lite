@@ -191,7 +191,7 @@ static int S_set_sigmask(sigset_t *newmask)
 
 static mthread* start_thread(mthread* thread, IV stack_size) {
 #ifdef WIN32
-	thread->handle = CreateThread(NULL, (DWORD)stack_size, run_thread, (LPVOID)thread, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread->thr);
+	CreateThread(NULL, (DWORD)stack_size, run_thread, (LPVOID)thread, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 #else
 	int rc_stack_size = 0;
 	int rc_thread_create = 0;
@@ -218,15 +218,16 @@ static mthread* start_thread(mthread* thread, IV stack_size) {
 	}
 #  endif
 
+	pthread_t thr;
 	/* Create the thread */
 	if (! rc_stack_size) {
 #  ifdef OLD_PTHREADS_API
-		rc_thread_create = pthread_create(&thread->thr, attr, run_thread, (void *)thread);
+		rc_thread_create = pthread_create(&thr, attr, run_thread, (void *)thread);
 #  else
 #	if defined(HAS_PTHREAD_ATTR_SETSCOPE) && defined(PTHREAD_SCOPE_SYSTEM)
 		pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 #	endif
-		rc_thread_create = pthread_create(&thread->thr, &attr, run_thread, (void *)thread);
+		rc_thread_create = pthread_create(&thr, &attr, run_thread, (void *)thread);
 #  endif
 	}
 	/* Now it's safe to accept signals, since we're in our own interpreter's

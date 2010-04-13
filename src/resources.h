@@ -1,6 +1,7 @@
 void global_init(pTHX);
 
 mthread* mthread_alloc(PerlInterpreter*);
+void mthread_destroy(mthread*);
 UV queue_alloc();
 
 void S_thread_send(pTHX_ UV thread_id, message* message);
