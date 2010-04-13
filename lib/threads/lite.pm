@@ -35,18 +35,6 @@ sub _deep_equals {
 
 ##no critic (Subroutines::RequireFinalReturn)
 
-sub receive {
-	my @args = @_;
-	if (my @ret = _match_mailbox(\@args)) {
-		return @ret;
-	}
-	while (1) {
-		my @next = _receive;
-		return _return_elements(\@next) if _deep_equals(\@next, \@args);
-		_push_mailbox(\@next);
-	}
-}
-
 sub receive_nb {
 	my @args = @_;
 	if (my @ret = _match_mailbox(\@args)) {

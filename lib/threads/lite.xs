@@ -84,6 +84,37 @@ spawn(options, startup)
 		create_push_threads(real_options, startup);
 		SPAGAIN;
 
+
+void
+receive(...)
+	INIT:
+		SV* args;
+		int ret_items;
+		mthread* thread;
+	PPCODE:
+		args = newRV_noinc((SV*)av_make(items, MARK + 1));
+		PUTBACK;
+		ret_items = match_mailbox(args, GIMME_V);
+		SPAGAIN;
+		if (ret_items)
+			XSRETURN(ret_items);
+		thread = get_self();
+		while (1) {
+			message message;
+			AV* entry;
+			SV* entry_sv;
+			queue_dequeue(&thread->queue, &message, NULL);
+			message_to_array(&message, &entry);
+			entry_sv = sv_2mortal(newRV_inc((SV*)entry));
+			if (items == 0 || deep_equals(entry_sv, args)) {
+				PUTBACK;
+				return_elements(entry, GIMME_V);
+				SPAGAIN;
+				break;
+			}
+			push_mailbox(entry_sv);
+		}
+
 void
 _receive()
 	PPCODE:

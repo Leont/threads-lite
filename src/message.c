@@ -129,6 +129,38 @@ void S_message_to_stack(pTHX_ message* message, U32 context) {
 	PUTBACK;
 }
 
+void S_message_to_array(pTHX_ message* message, AV** array_ptr) {
+	dSP;
+	switch(message->type) {
+		case STRING:
+			*array_ptr = newAV();
+			av_push(*array_ptr, message_get_sv(message));
+			sv_2mortal((SV*)*array_ptr);
+			break;
+		case PACKED: {
+			SV* mess = message_get_sv(message);
+			STRLEN len;
+			const char* packed = SvPV(mess, len);
+			SV** mark = SP;
+			PUTBACK;
+			int count = unpackstring(pack_template, pack_template + sizeof pack_template - 1, packed, packed + len, 0);
+			SPAGAIN;
+			*array_ptr = av_make(count, mark + 1);
+			sv_2mortal((SV*)*array_ptr);
+			break;
+		}
+		case STORABLE: {
+			*array_ptr = (AV*) SvRV(message_load_value(message));
+			SPAGAIN;
+			break;
+		}
+		default:
+			Perl_croak(aTHX_ "Type %d is not yet implemented", message->type);
+	}
+
+	PUTBACK;
+}
+
 void S_message_clone(pTHX_ message* origin, message* clone) {
 	clone->type = origin->type;
 	switch (origin->type) {
