@@ -176,11 +176,11 @@ The stack size for the newly created threads. It defaults to 64 kiB.
 
 $sub can be a function name or a subref. If it is a name, you must make sure the module it is in is loaded in the new thread. If it is a reference it will be serialized and sent to the new thread. This means that any enclosed variables will probability not work as expected.
 
-=head3 self
+=head3 self()
 
 Retreive the tid corresponding with the current thread.
 
-=head3 send_to(id, ...)
+=head3 send_to($id, ...)
 
 Send a message a thread identified by its primitive identifier
 
@@ -234,7 +234,6 @@ automatically be notified of progress on your bug as I make changes.
 You can find documentation for this module with the perldoc command.
 
     perldoc threads::lite
-
 
 You can also look for information at:
 

@@ -26,19 +26,21 @@ This module represents a queue object/
 
 =head2 new()
 
-Creates a new queue object. Note that queues are not destroyed until the end of the program.
+Creates a new queue object. Note that queues have to be destroyed explicitly.
 
 =head2 enqueue(...)
 
 Send the list of arguments to the queue.
 
-=head2 dequeue
+=head2 dequeue()
 
 Receive the front entry from the queue. If the queue is empty then it blocks.
 
-=head2 dequeue_nb
+=head2 dequeue_nb()
 
 Receive the front entry from the queue. If the queue is empty then it returns an empty list.
+
+=head2 destroy
 
 =head1 AUTHOR
 

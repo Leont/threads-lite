@@ -63,13 +63,13 @@ This module represents a thread ID object. It provides a handle to a thread.
 
 Send a message to a thread. The message items may contain any data type that can be serialized by L<Storable> (including coderefs).
 
-=head2 id
+=head2 id()
 
 Get an opaque but primitive identifier for thread.
 
-=head2 monitor
+=head2 monitor()
 
-Monitor the thread. This will cause the calling thread to get a notification of the thread's end. In case of a natural death it returns C<('normal', @return_value)>, in case of an unnatural death it will contain C<('error', $exception)>.
+Monitor the thread. This will cause the calling thread to get a notification of the thread's end. In case of a natural death it returns C<('exit', 'normal', $id, @return_value)>, in case of an unnatural death it will contain C<('exit', 'error', $id, $exception)>.
 
 =head2 rpc(@args)
 
@@ -87,15 +87,11 @@ Please report any bugs or feature requests to C<bug-threads-lite at rt.cpan.org>
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=threads-lite>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
-
-
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc threads::lite
-
 
 You can also look for information at:
 
@@ -118,10 +114,6 @@ L<http://cpanratings.perl.org/d/threads-lite>
 L<http://search.cpan.org/dist/threads-lite>
 
 =back
-
-
-=head1 ACKNOWLEDGEMENTS
-
 
 =head1 COPYRIGHT & LICENSE
 

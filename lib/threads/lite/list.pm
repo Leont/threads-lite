@@ -135,8 +135,6 @@ Version 0.025
 
 This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
 
-=head1 CLASS METHODS
-
 =head1 FUNCTIONS
 
 =head2 parallel_map { block } $options, @elements
@@ -147,7 +145,7 @@ map a list using multiple threads. $options is a hashref whose keys are like in 
 
 grep a list using multiple threads. $options is a hashref whose keys are like in C<new>.
 
-=head1 METHODS
+=head1 CLASS METHODS
 
 A parallel list processing object can be created if you want to reuse your filter with other arguments.
 
@@ -170,6 +168,8 @@ Modules that must be loaded be for the mapping or grepping.
 The number of threads you want to use to do the mapping. The default is currently 4, an arbitrary number that may change in the future.
 
 =back
+
+=head1 INSTANCE METHODS
 
 =head2 map(@elements)
 
