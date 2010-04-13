@@ -8,6 +8,23 @@
 #include "mthread.h"
 #include "resources.h"
 
+void S_return_elements(pTHX_ AV* values, U32 context) {
+	dSP;
+	if (context == G_SCALAR) {
+		SV** ret = av_fetch(values, 0, FALSE);
+		PUSHs(ret ? *ret : &PL_sv_undef);
+	}
+	else if (context == G_ARRAY) {
+		UV count = av_len(values) + 1;
+		EXTEND(SP, count);
+		Copy(AvARRAY(values), SP + 1, count, SV*);
+		SP += count;
+	}
+	PUTBACK;
+}
+
+#define return_elements(entry, context) S_return_elements(aTHX_ entry, context)
+
 MODULE = threads::lite             PACKAGE = threads::lite
 
 PROTOTYPES: DISABLED
@@ -51,6 +68,13 @@ SV* self()
 	OUTPUT:
 		RETVAL
 
+void
+_return_elements(arg)
+	SV* arg;
+	PPCODE:
+		PUTBACK;
+		return_elements((AV*)SvRV(arg), GIMME_V);
+		SPAGAIN;
 
 void
 send_to(tid, ...)

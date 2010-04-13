@@ -33,11 +33,6 @@ sub _deep_equals {
 	return 1;
 }
 
-sub _return_elements {
-	my @args = @_;
-	return wantarray ? @args : $args[0];
-}
-
 sub _match_mailbox {
 	my ($criterion) = @_;
 	for my $i (0..$#message_cache) {
@@ -61,7 +56,7 @@ sub receive {
 	}
 	while (1) {
 		my @next = _receive;
-		return _return_elements(@next) if _deep_equals(\@next, \@args);
+		return _return_elements(\@next) if _deep_equals(\@next, \@args);
 		_push_mailbox(\@next);
 	}
 }
@@ -72,7 +67,7 @@ sub receive_nb {
 		return @ret;
 	}
 	while (my @next = _receive_nb) {
-		return _return_elements(@next) if _deep_equals(\@next, \@args);
+		return _return_elements(\@next) if _deep_equals(\@next, \@args);
 		_push_mailbox(\@next);
 	}
 	return;
@@ -87,7 +82,7 @@ sub receive_table {
 	for my $pair (@table) {
 		if (my @ret = _match_mailbox($pair->[0])) {
 			$pair->[1]->(@ret) if defined $pair->[1];
-			return _return_elements(@ret);
+			return _return_elements(\@ret);
 		}
 	}
 	while (1) {
@@ -95,7 +90,7 @@ sub receive_table {
 		for my $pair (@table) {
 			if (_deep_equals(\@next, $pair->[0])) {
 				$pair->[1]->(@next) if defined $pair->[1];
-				return _return_elements(@next);
+				return _return_elements(\@next);
 			}
 		}
 		_push_mailbox(\@next);
@@ -111,14 +106,14 @@ sub receive_table_nb {
 	for my $pair (@table) {
 		if (my @ret = _match_mailbox($pair->[0])) {
 			$pair->[1]->(@ret) if defined $pair->[1];
-			return _return_elements(@ret);
+			return _return_elements(\@ret);
 		}
 	}
 	while (my @next = _receive) {
 		for my $pair (@table) {
 			if (_deep_equals(\@next, $pair->[0])) {
 				$pair->[1]->(@next) if defined $pair->[1];
-				return _return_elements(@next);
+				return _return_elements(\@next);
 			}
 		}
 		_push_mailbox(\@next);
