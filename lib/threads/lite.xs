@@ -51,6 +51,18 @@ SV* self()
 	OUTPUT:
 		RETVAL
 
+
+void
+send_to(tid, ...)
+	SV* tid;
+	CODE:
+		if (items == 1)
+			Perl_croak(aTHX_ "Can't send an empty list\n");
+		UV thread_id = SvUV(tid);
+		message message;
+		message_from_stack(&message, MARK + 1);
+		thread_send(thread_id, &message);
+
 MODULE = threads::lite             PACKAGE = threads::lite::tid
 
 PROTOTYPES: DISABLED

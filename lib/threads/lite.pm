@@ -14,7 +14,7 @@ use Data::Dumper;
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
-our @EXPORT_OK = qw/spawn receive receive_nb receive_table receive_table_nb self/;
+our @EXPORT_OK = qw/spawn receive receive_nb receive_table receive_table_nb self send_to/;
 
 require threads::lite::tid;
 
@@ -205,6 +205,10 @@ $sub can be a function name or a subref. If it is a name, you must make sure the
 =head3 self
 
 Retreive the tid corresponding with the current thread.
+
+=head3 send_to(id, ...)
+
+Send a message a thread identified by its primitive identifier
 
 =head2 Receiving functions
 
