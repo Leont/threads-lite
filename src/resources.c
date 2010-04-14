@@ -214,16 +214,21 @@ void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 #define send_listeners(thread, message) S_send_listeners(aTHX_ thread, message)
 
 void thread_add_listener(pTHX, UV talker, UV listener) {
+	mthread* thread;
 	dXCPT;
 
 	lock_shared(&threads.lock);
 	THREAD_TRY {
-		mthread* thread = get_thread(talker);
+		thread = get_thread(talker);
 		if (thread->listeners.alloc == thread->listeners.head) {
 			thread->listeners.alloc = thread->listeners.alloc ? thread->listeners.alloc * 2 : 1;
 			thread->listeners.list = PerlMemShared_realloc(thread->listeners.list, sizeof(IV) * thread->listeners.alloc);
 		}
 		thread->listeners.list[thread->listeners.head++] = listener;
+		lock_exclusive(&thread->lock);
 	} THREAD_FINALLY( unlock_shared(&threads.lock) );
+
+	thread->listeners.list[thread->listeners.head++] = listener;
+	unlock_exclusive(&thread->lock);
 }
 
