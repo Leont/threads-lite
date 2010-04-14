@@ -1,9 +1,17 @@
 #include <stdlib.h>
 #include "sync.h"
 
-#define atomic_add(address, value) __sync_add_and_fetch(address, value)
-#define atomic_sub(address, value) __sync_sub_and_fetch(address, value)
+#if defined _MSC_VER
+#define atomic_inc(address) InterlockedIncrement(address)
+#define atomic_dec(address) InterlockedDecrement(address)
+#define atomic_replace(address, old_value, new_value) InterlockedCompareExchange(address, new_value, old_value)
+#elif defined __GNUC__
+#define atomic_inc(address) __sync_add_and_fetch(address, 1)
+#define atomic_dec(address) __sync_sub_and_fetch(address, 1)
 #define atomic_replace(address, old_value, new_value) __sync_bool_compare_and_swap(address, old_value, new_value)
+#else
+#error Unsupported compiler
+#endif
 
 void spin_init(spin_lock_t* lock) {
 	lock->count = 0;
@@ -22,7 +30,7 @@ void lock_init(shared_lock_t* lock) {
 	lock->count = 0;
 }
 void lock_shared(shared_lock_t* lock) {
-	int value;
+	long value;
 	redo:
 		value = lock->count;
 	if (value < 0)
@@ -32,11 +40,11 @@ void lock_shared(shared_lock_t* lock) {
 }
 
 void unlock_shared(shared_lock_t* lock) {
-	atomic_sub(&lock->count, 1);
+	atomic_dec(&lock->count);
 }
 
 void lock_exclusive(shared_lock_t* lock) {
-	int value;
+	long value;
 	redo:
 		value = lock->count;
 	if (value > 0)
@@ -50,12 +58,12 @@ void unlock_exclusive(shared_lock_t* lock) {
 		abort();
 }
 
-void counter_init(atomic_counter* counter, int value) {
+void counter_init(atomic_counter* counter, long value) {
 	counter->counter = value;
 }
-int counter_inc(atomic_counter* counter) {
-	return atomic_add(&counter->counter, 1);
+long counter_inc(atomic_counter* counter) {
+	return atomic_inc(&counter->counter);
 }
-int counter_dec(atomic_counter* counter) {
-	return atomic_sub(&counter->counter, 1);
+long counter_dec(atomic_counter* counter) {
+	return atomic_dec(&counter->counter);
 }
