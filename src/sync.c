@@ -4,7 +4,7 @@
 #if defined _MSC_VER
 #define atomic_inc(address) InterlockedIncrement(address)
 #define atomic_dec(address) InterlockedDecrement(address)
-#define atomic_replace(address, old_value, new_value) InterlockedCompareExchange(address, new_value, old_value)
+#define atomic_replace(address, old_value, new_value) ( InterlockedCompareExchange(address, new_value, old_value) == old_value )
 #elif defined __GNUC__
 #define atomic_inc(address) __sync_add_and_fetch(address, 1)
 #define atomic_dec(address) __sync_sub_and_fetch(address, 1)
