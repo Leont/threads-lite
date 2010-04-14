@@ -48,7 +48,7 @@ void queue_init(message_queue* queue) {
 	COND_INIT(&queue->condvar);
 }
 
-void queue_enqueue(message_queue* queue, message* message_, shared_lock_t* external_lock) {
+void queue_enqueue(message_queue* queue, message* message_, rw_lock_t* external_lock) {
 	queue_node* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
@@ -81,7 +81,7 @@ static void queue_shift(message_queue* queue, message* input) {
 		queue->back = NULL;
 }
 
-void queue_dequeue(message_queue* queue, message* input, shared_lock_t* external_lock) {
+void queue_dequeue(message_queue* queue, message* input, rw_lock_t* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		unlock_shared(external_lock);
@@ -94,7 +94,7 @@ void queue_dequeue(message_queue* queue, message* input, shared_lock_t* external
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-bool queue_dequeue_nb(message_queue* queue, message* input, shared_lock_t* external_lock) {
+bool queue_dequeue_nb(message_queue* queue, message* input, rw_lock_t* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		unlock_shared(external_lock);

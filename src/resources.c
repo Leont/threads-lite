@@ -19,7 +19,7 @@
 bool inited = 0;
 
 typedef struct {
-	shared_lock_t lock;
+	rw_lock_t lock;
 	UV current;
 	UV allocated;
 	void** objects;

@@ -26,10 +26,10 @@ void spin_unlock(spin_lock_t* lock) {
 	atomic_replace(&lock->count, 1, 0);
 }
 
-void lock_init(shared_lock_t* lock) {
+void lock_init(rw_lock_t* lock) {
 	lock->count = 0;
 }
-void lock_shared(shared_lock_t* lock) {
+void lock_shared(rw_lock_t* lock) {
 	long value;
 	redo:
 		value = lock->count;
@@ -39,11 +39,11 @@ void lock_shared(shared_lock_t* lock) {
 		goto redo;
 }
 
-void unlock_shared(shared_lock_t* lock) {
+void unlock_shared(rw_lock_t* lock) {
 	atomic_dec(&lock->count);
 }
 
-void lock_exclusive(shared_lock_t* lock) {
+void lock_exclusive(rw_lock_t* lock) {
 	long value;
 	redo:
 		value = lock->count;
@@ -53,7 +53,7 @@ void lock_exclusive(shared_lock_t* lock) {
 		goto redo;
 }
 
-void unlock_exclusive(shared_lock_t* lock) {
+void unlock_exclusive(rw_lock_t* lock) {
 	if (!atomic_replace(&lock->count, -1, 0))
 		abort();
 }

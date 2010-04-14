@@ -6,15 +6,15 @@ void spin_init(spin_lock_t* lock);
 void spin_lock(spin_lock_t* lock);
 void spin_unlock(spin_lock_t* lock);
 
-typedef struct _shared_lock_t {
+typedef struct _rw_lock_t {
 	volatile long count;
-} shared_lock_t;
+} rw_lock_t;
 
-void lock_init(shared_lock_t* lock);
-void lock_shared(shared_lock_t* lock);
-void unlock_shared(shared_lock_t* lock);
-void lock_exclusive(shared_lock_t* lock);
-void unlock_exclusive(shared_lock_t* lock);
+void lock_init(rw_lock_t* lock);
+void lock_shared(rw_lock_t* lock);
+void unlock_shared(rw_lock_t* lock);
+void lock_exclusive(rw_lock_t* lock);
+void unlock_exclusive(rw_lock_t* lock);
 
 typedef struct {
 	volatile long counter;
