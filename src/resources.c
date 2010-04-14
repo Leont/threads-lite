@@ -103,7 +103,7 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	queue_init(&ret->queue);
 	ret->id = resource_addobject(&threads, ret);
 	ret->interp = my_perl;
-	spin_init(&ret->lock);
+	lock_init(&ret->lock);
 	return ret;
 }
 
@@ -197,18 +197,18 @@ void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 	int i;
 	dXCPT;
 
-	spin_lock(&thread->lock);
+	lock_shared(&thread->lock);
 	for (i = 0; i < thread->listeners.head; ++i) {
 		message clone;
 		UV thread_id;
-		lock_shared(&threads.lock); // unlocked by queue_enqueue
+		lock_shared(&threads.lock); /* unlocked by queue_enqueue */
 		thread_id = thread->listeners.list[i];
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
 		message_clone(mess, &clone);
 		queue_enqueue(&((mthread*)threads.objects[thread_id])->queue, &clone, &threads.lock);
 	}
-	spin_unlock(&thread->lock);
+	unlock_shared(&thread->lock);
 }
 
 #define send_listeners(thread, message) S_send_listeners(aTHX_ thread, message)
