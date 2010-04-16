@@ -105,6 +105,7 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	UV id = resource_addobject(&threads, ret);
 	ret->id = id;
 	ret->interp = my_perl;
+	MUTEX_INIT(&ret->lock);
 	return ret;
 }
 
@@ -113,6 +114,8 @@ void mthread_destroy(mthread* thread) {
 	threads.objects[thread->id] = NULL;
 	queue_destroy(&thread->queue);
 	MUTEX_UNLOCK(&threads.lock);
+
+	MUTEX_DESTROY(&thread->lock);
 
 	MUTEX_LOCK(&counter.mutex);
 	counter.count--;
