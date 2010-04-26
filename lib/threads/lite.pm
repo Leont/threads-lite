@@ -9,12 +9,15 @@ use 5.010;
 
 use Exporter 5.57 qw/import/;
 use Storable 2.05 ();
-use Data::Dumper;
 
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
 our @EXPORT_OK = qw/spawn receive receive_nb receive_table receive_table_nb self send_to/;
+our %EXPORT_TAGS = (
+	receive => [ qw/receive receive_nb receive_table receive_table_nb/ ],
+	all     => \@EXPORT_OK,
+);
 
 require threads::lite::tid;
 
