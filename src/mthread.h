@@ -6,6 +6,7 @@ typedef struct mthread {
 #ifndef WIN32
 	sigset_t initial_sigmask;   /* Thread wakes up with signals blocked */
 #endif
+	AV* cache;
 	struct {
 		IV* list;
 		UV head;

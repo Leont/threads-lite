@@ -20,9 +20,10 @@ int S_deep_equals(pTHX_ SV* entry, SV* pattern) {
 }
 #define deep_equals(entry, pattern) S_deep_equals(aTHX_ entry, pattern)
 
-int S_match_mailbox(pTHX_ SV* criterion, U32 context) {
+#define get_message_cache(thread) (thread)->cache
+
+int S_match_mailbox(pTHX_ AV* cache, SV* criterion, U32 context) {
 	dSP;
-	AV* cache = (AV*)*hv_fetch(PL_modglobal, "threads::lite::message_cache", 28, 0);
 	SV** cache_raw = AvARRAY(cache);
 	SSize_t last = av_len(cache);
 	SSize_t counter;
@@ -36,15 +37,14 @@ int S_match_mailbox(pTHX_ SV* criterion, U32 context) {
 	}
 	return 0;
 }
-#define match_mailbox(entry, context) S_match_mailbox(aTHX_ entry, context)
+#define match_mailbox(cache, entry, context) S_match_mailbox(aTHX_ cache, entry, context)
 
-void S_push_mailbox(pTHX_ SV* entry) {
-	AV* cache = (AV*)*hv_fetch(PL_modglobal, "threads::lite::message_cache", 28, 0);
+void S_push_mailbox(pTHX_ AV* cache, SV* entry) {
 	SV* tmp = newRV_noinc((SV*)entry);
 	SvREFCNT_inc_nn(tmp);
 	av_push(cache, tmp);
 }
-#define push_mailbox(entry) S_push_mailbox(aTHX_ entry)
+#define push_mailbox(cache, entry) S_push_mailbox(aTHX_ cache, entry)
 
 int S_return_elements(pTHX_ AV* values, U32 context) {
 	dSP;
@@ -95,11 +95,12 @@ receive(...)
 	PPCODE:
 		args = newRV_noinc((SV*)av_make(items, MARK + 1));
 		PUTBACK;
-		ret_items = match_mailbox(args, GIMME_V);
+		thread = get_self();
+		AV* cache = get_message_cache(thread);
+		ret_items = match_mailbox(cache, args, GIMME_V);
 		SPAGAIN;
 		if (ret_items)
 			XSRETURN(ret_items);
-		thread = get_self();
 		while (1) {
 			message message;
 			AV* entry;
@@ -113,7 +114,7 @@ receive(...)
 				SPAGAIN;
 				break;
 			}
-			push_mailbox(entry_sv);
+			push_mailbox(cache, entry_sv);
 		}
 
 void
@@ -155,14 +156,14 @@ _match_mailbox(criterion)
 	SV* criterion;
 	PPCODE:
 		PUTBACK;
-		match_mailbox(criterion, GIMME_V);
+		match_mailbox(get_message_cache(get_self()), criterion, GIMME_V);
 		SPAGAIN;
 
 void
 _push_mailbox(arg)
 	SV* arg;
 	CODE:
-		push_mailbox(arg);
+		push_mailbox(get_message_cache(get_self()), arg);
 
 void
 send_to(tid, ...)
