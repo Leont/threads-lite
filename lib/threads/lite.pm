@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.025';
+our $VERSION = '0.026';
 
 use 5.010;
 
@@ -108,7 +108,7 @@ threads::lite - Erlang style threading library
 
 =head1 VERSION
 
-Version 0.025
+Version 0.026
 
 =head1 SYNOPSIS
 
@@ -225,7 +225,7 @@ Leon Timmermans, C<< <leont at cpan.org> >>
 
 =head1 BUGS
 
-This is an early development release, and is expected to be buggy and incomplete.
+This is an early development release, and is expected to be buggy and incomplete. In particular, memory management is known to be buggy.
 
 Please report any bugs or feature requests to C<bug-threads-lite at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=threads-lite>.  I will be notified, and then you'll
