@@ -22,30 +22,6 @@ int S_deep_equals(pTHX_ SV* entry, SV* pattern) {
 
 #define get_message_cache(thread) (thread)->cache
 
-int S_match_mailbox(pTHX_ AV* cache, SV* criterion, U32 context) {
-	dSP;
-	SV** cache_raw = AvARRAY(cache);
-	SSize_t last = av_len(cache);
-	SSize_t counter;
-	for(counter = 0; counter <= last; counter++) {
-		if (deep_equals(cache_raw[counter], criterion)) {
-			SV* ret = cache_raw[counter];
-			Move(cache_raw + counter + 1, cache_raw + counter, last - counter, SV*);
-			AvFILLp(cache)--;
-			return _return_elements((AV*)SvRV(ret), context);
-		}
-	}
-	return 0;
-}
-#define match_mailbox(cache, entry, context) S_match_mailbox(aTHX_ cache, entry, context)
-
-void S_push_mailbox(pTHX_ AV* cache, SV* entry) {
-	SV* tmp = newRV_noinc((SV*)entry);
-	SvREFCNT_inc_nn(tmp);
-	av_push(cache, tmp);
-}
-#define push_mailbox(cache, entry) S_push_mailbox(aTHX_ cache, entry)
-
 int S_return_elements(pTHX_ AV* values, U32 context) {
 	dSP;
 	UV count;
@@ -65,6 +41,30 @@ int S_return_elements(pTHX_ AV* values, U32 context) {
 }
 
 #define return_elements(entry, context) S_return_elements(aTHX_ entry, context)
+
+int S_match_mailbox(pTHX_ AV* cache, SV* criterion, U32 context) {
+	dSP;
+	SV** cache_raw = AvARRAY(cache);
+	SSize_t last = av_len(cache);
+	SSize_t counter;
+	for(counter = 0; counter <= last; counter++) {
+		if (deep_equals(cache_raw[counter], criterion)) {
+			SV* ret = cache_raw[counter];
+			Move(cache_raw + counter + 1, cache_raw + counter, last - counter, SV*);
+			AvFILLp(cache)--;
+			return return_elements((AV*)SvRV(ret), context);
+		}
+	}
+	return 0;
+}
+#define match_mailbox(cache, entry, context) S_match_mailbox(aTHX_ cache, entry, context)
+
+void S_push_mailbox(pTHX_ AV* cache, SV* entry) {
+	SV* tmp = newRV_noinc((SV*)entry);
+	SvREFCNT_inc_NN(tmp);
+	av_push(cache, tmp);
+}
+#define push_mailbox(cache, entry) S_push_mailbox(aTHX_ cache, entry)
 
 MODULE = threads::lite             PACKAGE = threads::lite
 
@@ -139,7 +139,7 @@ SV* self()
 	CODE:
 		mthread* thread = get_self();
 		SV** ret = hv_fetch(PL_modglobal, "threads::lite::self", 19, FALSE);
-		RETVAL = SvREFCNT_inc(*ret);
+		RETVAL = SvREFCNT_inc_NN(*ret);
 	OUTPUT:
 		RETVAL
 

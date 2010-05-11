@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.026';
+our $VERSION = '0.027';
 
 use 5.010;
 
@@ -108,7 +108,7 @@ threads::lite - Erlang style threading library
 
 =head1 VERSION
 
-Version 0.026
+Version 0.027
 
 =head1 SYNOPSIS
 

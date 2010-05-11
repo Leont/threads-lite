@@ -299,7 +299,7 @@ void S_create_push_threads(PerlInterpreter* self, HV* options, SV* startup) {
 	UV id = S_get_self(self)->id;
 	message to_run;
 	S_message_store_value(self, &to_run, startup);
-	SvREFCNT_inc(options);
+	SvREFCNT_inc_NN(options);
 
 	int clone_number = get_clone_number(self, options);
 	int monitor = should_monitor(self, options);
