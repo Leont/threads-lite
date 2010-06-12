@@ -140,14 +140,16 @@ static void* run_thread(void* arg) {
 	message_destroy(&message);
 
 	perl_mutex* shutdown_mutex = get_shutdown_mutex();
+
 	MUTEX_LOCK(shutdown_mutex);
 	perl_destruct(my_perl);
 	MUTEX_UNLOCK(shutdown_mutex);
 
 	mthread_destroy(thread);
+
+	PerlMemShared_free(thread);
+
 	perl_free(my_perl);
-	
-	Safefree(thread);
 
 	return NULL;
 }

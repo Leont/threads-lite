@@ -1,7 +1,6 @@
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
-#define NO_XSLOCKS
 #include "XSUB.h"
 
 #include "message.h"
@@ -11,10 +10,9 @@
  */
 
 static SV* S_message_get_sv(pTHX_ message* message) {
-	SV* stored = newSV_type(SVt_PV);
-	SvPVX(stored) = message->string.ptr;
-	SvLEN(stored) = SvCUR(stored) = message->string.length;
-	SvPOK_only(stored);
+	SV* stored = newSVpvn(message->string.ptr, message->string.length);
+	PerlMemShared_free(message->string.ptr);
+	message->string.ptr = NULL;
 	return stored;
 }
 
@@ -23,7 +21,7 @@ static SV* S_message_get_sv(pTHX_ message* message) {
 static void S_message_set_sv(pTHX_ message* message, SV* value, enum message_type type) {
 	message->type = type;
 	char* string = SvPV(value, message->string.length);
-	message->string.ptr = savepvn(string, message->string.length);
+	message->string.ptr = savesharedpvn(string, message->string.length);
 }
 
 #define message_set_sv(message, value, type) S_message_set_sv(aTHX_ message, value, type)
@@ -165,12 +163,13 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 	clone->type = origin->type;
 	switch (origin->type) {
 		case EMPTY:
+			Perl_croak(aTHX_ "Empty messages aren't allowed yet\n");
 			break;
 		case STRING:
 		case PACKED:
 		case STORABLE:
 			clone->string.length = origin->string.length;
-			clone->string.ptr = savepvn(origin->string.ptr, origin->string.length);
+			clone->string.ptr = savesharedpvn(origin->string.ptr, origin->string.length);
 			break;
 		default:
 			Perl_die(aTHX, "Unknown type in message\n");
@@ -183,7 +182,7 @@ void message_destroy(message* message) {
 			break;
 		case STRING:
 		case STORABLE:
-			Safefree(message->string.ptr);
+			PerlMemShared_free(message->string.ptr);
 			Zero(message, 1, message);
 			break;
 /*		default:

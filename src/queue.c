@@ -37,7 +37,7 @@ static void node_destroy(struct queue_node* current) {
 	while (current != NULL) {
 		struct queue_node* next = current->next;
 		message_destroy(&current->message);
-		Safefree(current);
+		PerlMemShared_free(current);
 		current = next;
 	}
 }
@@ -56,9 +56,10 @@ void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external
 	if (queue->reserve)
 		new_entry = node_shift(&queue->reserve);
 	else
-		Newx(new_entry, 1, queue_node);
+		new_entry = PerlMemShared_calloc(1, sizeof *new_entry);
 
 	Copy(message_, &new_entry->message, 1, message);
+	Zero(message_, 1, message);
 	new_entry->next = NULL;
 
 	node_push(&queue->back, new_entry);
