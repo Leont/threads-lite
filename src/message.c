@@ -19,8 +19,9 @@ static SV* S_message_get_sv(pTHX_ message* message) {
 #define message_get_sv(message) S_message_get_sv(aTHX_ message)
 
 static void S_message_set_sv(pTHX_ message* message, SV* value, enum message_type type) {
+	char* string;
 	message->type = type;
-	char* string = SvPV(value, message->string.length);
+	string = SvPV(value, message->string.length);
 	message->string.ptr = savesharedpvn(string, message->string.length);
 }
 
@@ -181,6 +182,7 @@ void message_destroy(message* message) {
 		case EMPTY:
 			break;
 		case STRING:
+		case PACKED:
 		case STORABLE:
 			PerlMemShared_free(message->string.ptr);
 			Zero(message, 1, message);

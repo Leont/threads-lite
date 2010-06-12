@@ -84,9 +84,10 @@ void store_self(pTHX, mthread* thread) {
 mthread* S_get_self(pTHX) {
 	SV** self_sv = hv_fetch(PL_modglobal, "threads::lite::thread", 21, FALSE);
 	if (!self_sv) {
+		mthread* ret;
 		if (ckWARN(WARN_THREADS))
 			Perl_warn(aTHX, "Creating thread context where non existed\n");
-		mthread* ret = mthread_alloc(aTHX);
+		ret = mthread_alloc(aTHX);
 		store_self(aTHX, ret);
 		return ret;
 	}
@@ -106,21 +107,23 @@ perl_mutex* get_shutdown_mutex() {
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
 	PerlInterpreter* my_perl = thread->interp;
+	message to_run, message;
+	SV *call, *status;
+	perl_mutex* shutdown_mutex;
+
+	dSP;
 
 #ifndef WIN32
 	S_set_sigmask(&thread->initial_sigmask);
 #endif
 	PERL_SET_CONTEXT(my_perl);
 
-	message to_run;
 	queue_dequeue(&thread->queue, &to_run, NULL);
-	SV* call = SvRV(message_load_value(&to_run));
-
-	dSP;
+	call = SvRV(message_load_value(&to_run));
 
 	PUSHMARK(SP);
 	PUSHs(newSVpvn("exit", 4));
-	SV* status = newSVpvn("normal", 6);
+	status = newSVpvn("normal", 6);
 	PUSHs(status);
 	PUSHs(newSViv(thread->id));
 
@@ -134,12 +137,11 @@ static void* run_thread(void* arg) {
 		warn("Thread %"UVuf" got error %s\n", thread->id, SvPV_nolen(ERRSV));
 		PUSHs(ERRSV);
 	}
-	message message;
 	message_from_stack_pushed(&message);
 	send_listeners(thread, &message);
 	message_destroy(&message);
 
-	perl_mutex* shutdown_mutex = get_shutdown_mutex();
+	shutdown_mutex = get_shutdown_mutex();
 
 	MUTEX_LOCK(shutdown_mutex);
 	perl_destruct(my_perl);
@@ -197,14 +199,16 @@ static mthread* start_thread(mthread* thread, IV stack_size) {
 #ifdef WIN32
 	CreateThread(NULL, (DWORD)stack_size, run_thread, (LPVOID)thread, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 #else
-	int rc_stack_size = 0;
-	int rc_thread_create = 0;
-
-	S_block_most_signals(&thread->initial_sigmask);
-
 	static pthread_attr_t attr;
 	static int attr_inited = 0;
 	static int attr_detached = PTHREAD_CREATE_DETACHED;
+
+	int rc_stack_size = 0;
+	int rc_thread_create = 0;
+	pthread_t thr;
+
+	S_block_most_signals(&thread->initial_sigmask);
+
 	if (! attr_inited) {
 		pthread_attr_init(&attr);
 		attr_inited = 1;
@@ -221,7 +225,6 @@ static mthread* start_thread(mthread* thread, IV stack_size) {
 		rc_stack_size = pthread_attr_setstacksize(&attr, (size_t)stack_size);
 #  endif
 
-	pthread_t thr;
 	/* Create the thread */
 	if (! rc_stack_size) {
 #  ifdef OLD_PTHREADS_API

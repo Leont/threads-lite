@@ -31,8 +31,9 @@ static S_resource_init(resource* res, UV preallocate) {
 #define resource_init(res, pre) S_resource_init(res, pre)
 
 static UV resource_addobject(resource* res, void* object) {
+	UV ret;
 	MUTEX_LOCK(&res->lock);
-	UV ret = res->current;
+	ret = res->current;
 	if (res->current == res->allocated)
 		res->objects = PerlMemShared_realloc(res->objects, sizeof(void*) * (res->allocated *=2));
 	res->objects[res->current++] = object;
@@ -61,10 +62,11 @@ static void wait_for_all_other_threads() {
 
 static XS(end_locker) {
 	dVAR; dXSARGS;
+	perl_mutex* mutex;
 
 	wait_for_all_other_threads();
 
-	perl_mutex* mutex = get_shutdown_mutex();
+	mutex = get_shutdown_mutex();
 	MUTEX_LOCK(mutex);
 	XSRETURN_EMPTY;
 }
@@ -76,6 +78,8 @@ static void end_unlocker() {
 
 void global_init(pTHX) {
 	if (!inited) {
+		mthread* ret;
+
 		inited = TRUE;
 
 		MUTEX_INIT(&counter.mutex);
@@ -84,7 +88,7 @@ void global_init(pTHX) {
 
 		resource_init(&threads, 8);
 		resource_init(&queues, 8);
-		mthread* ret = mthread_alloc(aTHX);
+		ret = mthread_alloc(aTHX);
 		store_self(aTHX, ret);
 
 		/* This is a nasty trick to make sure locking is performed during part of the destruct */
@@ -102,8 +106,7 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 
 	ret = PerlMemShared_calloc(1, sizeof *ret);
 	queue_init(&ret->queue);
-	UV id = resource_addobject(&threads, ret);
-	ret->id = id;
+	ret->id = resource_addobject(&threads, ret);
 	ret->interp = my_perl;
 	MUTEX_INIT(&ret->lock);
 	return ret;
@@ -206,8 +209,9 @@ void S_send_listeners(pTHX_ mthread* thread, message* mess) {
 	int i;
 	for (i = 0; i < thread->listeners.head; ++i) {
 		message clone;;
+		UV thread_id;
 		MUTEX_LOCK(&threads.lock); /* unlocked by queue_enqueue */
-		UV thread_id = thread->listeners.list[i];
+		thread_id = thread->listeners.list[i];
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
 		message_clone(mess, &clone);
@@ -226,7 +230,7 @@ void thread_add_listener(pTHX, UV talker, UV listener) {
 		mthread* thread = get_thread(talker);
 		if (thread->listeners.alloc == thread->listeners.head) {
 			thread->listeners.alloc = thread->listeners.alloc ? thread->listeners.alloc * 2 : 1;
-			thread->listeners.list = PerlMemShared_realloc(thread->listeners.list, sizeof (IV) * thread->listeners.alloc);
+			thread->listeners.list = PerlMemShared_realloc(thread->listeners.list, sizeof(IV) * thread->listeners.alloc);
 		}
 		thread->listeners.list[thread->listeners.head++] = listener;
 	} THREAD_FINALLY( MUTEX_UNLOCK(&threads.lock) );

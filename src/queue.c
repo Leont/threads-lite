@@ -48,11 +48,11 @@ void queue_init(message_queue* queue) {
 }
 
 void queue_enqueue(message_queue* queue, message* message_, perl_mutex* external_lock) {
+	queue_node* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		MUTEX_UNLOCK(external_lock);
 
-	queue_node* new_entry;
 	if (queue->reserve)
 		new_entry = node_shift(&queue->reserve);
 	else
