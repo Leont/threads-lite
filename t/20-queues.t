@@ -8,7 +8,7 @@ use Test::Differences;
 
 use threads::lite qw/spawn receive_table/;
 
-my $thread = spawn({ load  => [ 'Carp' ], monitor => 1 }, sub { 
+my $thread = spawn({ monitor => 1 }, sub { 
 	my (undef, $queue) = threads::lite::receive('queue');
 	$queue->enqueue(qw/foo bar baz/);
 	$queue->enqueue(qw/1 2 3/);
