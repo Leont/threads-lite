@@ -262,20 +262,6 @@ static void save_modules(pTHX, message* message, HV* options) {
 		Zero(message, 1, message);
 }
 
-static int get_clone_number(pTHX, HV* options) {
-	SV** clone_number_ptr = hv_fetch(options, "pool_size", 9, FALSE);
-	if (clone_number_ptr && SvOK(*clone_number_ptr))
-		return SvIV(*clone_number_ptr);
-	return 1;
-}
-
-static int should_monitor(pTHX, HV* options) {
-	SV** monitor_ptr = hv_fetch(options, "monitor", 7, FALSE);
-	if (monitor_ptr && SvOK(*monitor_ptr))
-		return SvIV(*monitor_ptr);
-	return FALSE;
-}
-
 static void load_modules(pTHX, message* list_mess) {
 	if (list_mess->type) {
 		SV* list_ref = message_load_value(list_mess);
@@ -287,13 +273,6 @@ static void load_modules(pTHX, message* list_mess) {
 			load_module(PERL_LOADMOD_NOIMPORT, *entry, NULL, NULL);
 		}
 	}
-}
-
-static unsigned get_stack_size(pTHX, HV* options) {
-	SV** stack_size_ptr = hv_fetch(options, "stack_size", 10, FALSE);
-	if (stack_size_ptr && SvOK(*stack_size_ptr))
-		return SvUV(*stack_size_ptr);
-	return 65536u;
 }
 
 static void push_thread(pTHX, mthread* thread) {
@@ -313,6 +292,13 @@ struct thread_create {
 	size_t stack_size;
 };
 
+static IV get_iv_option(pTHX_ HV* options, const char* key, IV default_value) {
+	SV** value__ptr = hv_fetch(options, key, strlen(key), FALSE);
+	if (value__ptr && SvOK(*value__ptr))
+		return SvIV(*value__ptr);
+	return default_value;
+}
+
 static int prepare_thread_create(pTHX, struct thread_create* new_thread, HV* options, SV* startup) {
 	UV id = get_self()->id;
 
@@ -320,9 +306,9 @@ static int prepare_thread_create(pTHX, struct thread_create* new_thread, HV* opt
 
 	save_modules(aTHX, &new_thread->modules, options);
 
-	new_thread->monitor = should_monitor(aTHX, options);
-	new_thread->stack_size = get_stack_size(aTHX, options);
-	return get_clone_number(aTHX, options);
+	new_thread->monitor = get_iv_option(aTHX, options, "monitor", FALSE);
+	new_thread->stack_size = get_iv_option(aTHX, options, "stack_size", 65536);
+	return get_iv_option(aTHX, options, "pool_size", 1);
 }
 
 static PerlInterpreter* thread_clone(pTHX, mthread* thread) {
