@@ -1,5 +1,8 @@
 Revision history for threads-lite
 
+0.028      2010-06-13
+           Refactoring and bugfixing for greater stability
+
 0.027      2010-05-11
            Fixed two typos in the code
 

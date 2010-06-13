@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.027';
+our $VERSION = '0.028';
 
 use 5.010;
 
@@ -20,6 +20,7 @@ our %EXPORT_TAGS = (
 );
 
 require threads::lite::tid;
+use threads::lite::queue;
 
 sub _receive;
 sub _receive_nb;
@@ -108,7 +109,7 @@ threads::lite - Erlang style threading library
 
 =head1 VERSION
 
-Version 0.027
+Version 0.028
 
 =head1 SYNOPSIS
 
