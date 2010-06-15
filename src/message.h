@@ -1,3 +1,7 @@
+#ifdef PACKED
+#undef PACKED
+#endif
+
 enum message_type { EMPTY, STRING, PACKED, STORABLE };
 
 typedef struct {
