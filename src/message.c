@@ -78,6 +78,7 @@ void S_message_from_stack(pTHX_ message* message) {
 
 SV* S_message_load_value(pTHX_ message* message) {
 	dSP;
+	SV* ret;
 
 	sv_setiv(save_scalar(gv_fetchpv("Storable::Eval", TRUE | GV_ADDMULTI, SVt_PV)), 1);
 	PUSHMARK(SP);
@@ -85,7 +86,7 @@ SV* S_message_load_value(pTHX_ message* message) {
 	PUTBACK;
 	call_pv("Storable::thaw", G_SCALAR);
 	SPAGAIN;
-	SV* ret = POPs;
+	ret = POPs;
 	PUTBACK;
 	return ret;
 }

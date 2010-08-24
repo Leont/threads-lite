@@ -34,8 +34,9 @@ static S_resource_init(resource* res, UV preallocate) {
 #define resource_init(res, pre) S_resource_init(res, pre)
 
 static UV resource_addobject(resource* res, void* object) {
-	UV ret = res->current;
+	UV ret;
 	lock_exclusive(&res->lock);
+	ret = res->current;
 	if (res->current == res->allocated)
 		res->objects = PerlMemShared_realloc(res->objects, sizeof(void*) * (res->allocated *=2));
 	res->objects[res->current++] = object;
