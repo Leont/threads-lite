@@ -139,10 +139,11 @@ void S_message_to_array(pTHX_ message* message, AV** array_ptr) {
 		case PACKED: {
 			SV* mess = message_get_sv(message);
 			STRLEN len;
+			int count;
 			const char* packed = SvPV(mess, len);
 			SV** mark = SP;
 			PUTBACK;
-			int count = unpackstring(pack_template, pack_template + sizeof pack_template - 1, packed, packed + len, 0);
+			count = unpackstring(pack_template, pack_template + sizeof pack_template - 1, packed, packed + len, 0);
 			SPAGAIN;
 			*array_ptr = av_make(count, mark + 1);
 			sv_2mortal((SV*)*array_ptr);

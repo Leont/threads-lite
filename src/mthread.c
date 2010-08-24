@@ -64,7 +64,10 @@ static const char* argv[] = {"", "-e", "0"};
 static int argc = sizeof argv / sizeof *argv;
 
 void store_self(pTHX, mthread* thread) {
-	SV* thread_sv = newSV_type(SVt_PV);
+	SV *thread_sv, *self;
+	AV* message_cache;
+
+	thread_sv = newSV_type(SVt_PV);
 	SvPVX(thread_sv) = (char*) thread;
 	SvCUR(thread_sv) = sizeof(mthread);
 	SvLEN(thread_sv) = 0;
@@ -72,11 +75,11 @@ void store_self(pTHX, mthread* thread) {
 	SvREADONLY_on(thread_sv);
 	hv_store(PL_modglobal, "threads::lite::thread", 21, thread_sv, 0);
 
-	SV* self = newRV_noinc(newSVuv(thread->id));
+	self = newRV_noinc(newSVuv(thread->id));
 	sv_bless(self, gv_stashpv("threads::lite::tid", TRUE));
 	hv_store(PL_modglobal, "threads::lite::self", 19, self, 0);
 
-	AV* message_cache = newAV();
+	message_cache = newAV();
 	hv_store(PL_modglobal, "threads::lite::message_cache", 28, (SV*)message_cache, 0);
 	thread->cache = message_cache;
 }
@@ -280,11 +283,13 @@ static void load_modules(pTHX, message* list_mess) {
 
 static void push_thread(pTHX, mthread* thread) {
 	PERL_SET_CONTEXT(aTHX);
-	dSP;
-	SV* to_push = newRV_noinc(newSVuv(thread->id));
-	sv_bless(to_push, gv_stashpv("threads::lite::tid", FALSE));
-	XPUSHs(to_push);
-	PUTBACK;
+	{
+		dSP;
+		SV* to_push = newRV_noinc(newSVuv(thread->id));
+		sv_bless(to_push, gv_stashpv("threads::lite::tid", FALSE));
+		XPUSHs(to_push);
+		PUTBACK;
+	}
 }
 
 struct thread_create {
@@ -328,14 +333,17 @@ static PerlInterpreter* thread_clone(pTHX, mthread* thread) {
 
 void S_create_push_threads(PerlInterpreter* self, HV* options, SV* startup) {
 	struct thread_create thread_options;
+	int clone_number;
+	PerlInterpreter* my_perl;
+	mthread* thread;
 
 	Zero(&thread_options, 1, struct thread_create);
-	int clone_number = prepare_thread_create(self, &thread_options, options, startup);
+	clone_number = prepare_thread_create(self, &thread_options, options, startup);
 
-	PerlInterpreter* my_perl = construct_perl();
+	my_perl = construct_perl();
 	load_modules(my_perl, &thread_options.modules);
 
-	mthread* thread = mthread_alloc(my_perl);
+	thread = mthread_alloc(my_perl);
 	store_self(my_perl, thread);
 	if (thread_options.monitor)
 		thread_add_listener(self, thread->id, thread_options.parent_id);

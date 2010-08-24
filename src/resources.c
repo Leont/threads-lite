@@ -203,12 +203,12 @@ void S_queue_receive_nb(pTHX_ UV queue_id, message* message) {
 }
 
 void S_send_listeners(pTHX_ mthread* thread, message* mess) {
+	int i;
 	dXCPT;
 
 	MUTEX_LOCK(&thread->lock);
-	int i;
 	for (i = 0; i < thread->listeners.head; ++i) {
-		message clone;;
+		message clone;
 		UV thread_id;
 		MUTEX_LOCK(&threads.lock); /* unlocked by queue_enqueue */
 		thread_id = thread->listeners.list[i];

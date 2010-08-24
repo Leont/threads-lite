@@ -112,7 +112,6 @@ bool queue_dequeue_nb(message_queue* queue, message* input, perl_mutex* external
 
 void queue_destroy(message_queue* queue) {
 	MUTEX_LOCK(&queue->mutex);
-	queue_node* next;
 	node_destroy(queue->front);
 	node_destroy(queue->reserve);
 	COND_DESTROY(&queue->condvar);

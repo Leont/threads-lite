@@ -92,11 +92,12 @@ receive(...)
 		SV* args;
 		int ret_items;
 		mthread* thread;
+		AV* cache;
 	PPCODE:
 		args = newRV_noinc((SV*)av_make(items, MARK + 1));
 		PUTBACK;
 		thread = get_self();
-		AV* cache = get_message_cache(thread);
+		cache = get_message_cache(thread);
 		ret_items = match_mailbox(cache, args, GIMME_V);
 		SPAGAIN;
 		if (ret_items)
