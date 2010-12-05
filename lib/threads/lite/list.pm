@@ -2,76 +2,78 @@ package threads::lite::list;
 
 use strict;
 use warnings;
+use 5.010;
 use Exporter 5.57 qw/import/;
 
 our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
-use threads::lite qw/self spawn receive receive_table/;
+use threads::lite qw/self spawn receive receive_table receive_match/;
+use constant DEFAULT_THREADS => 4;
+use Carp qw/carp/;
 
 our $VERSION = 0.025;
-
-our $THREADS = 4;
+our $THREADS ||= DEFAULT_THREADS;
 
 sub _mapper {
-	my (undef, $filter) = receive('filter');
+	my (undef, $filter) = receive('filter', qr//);
 	my $continue = 1;
 	while ($continue) {
-		receive_table(
-			[ qr/thread=\d+/, 'map' ] => sub {
-				my ($manager, undef, $index, $value) = @_;
+		receive_match {
+			when (@$_ == 4) {
+				my ($manager, undef, $index, $value) = @$_;
 				local $_ = $value;
 				$manager->send(self, 'map', $index, $filter->());
-			},
-			[ 'kill' ] => sub {
-				$continue = 0;
-			},
-			[] => sub {
-				warn sprintf "Received something unknown: (%s)\n", join ',', @_;
 			}
-		);
+			when (['kill']) {
+				$continue = 0;
+			}
+			default {
+				carp sprintf "Received something unknown: (%s)\n", join ',', @$_;
+			}
+		};
 	}
 	return;
 }
 
 sub _receive_next {
 	my $threads = shift;
-	my ($thread, undef, $index, @value) = receive($threads, 'map');
+	my ($thread, undef, $index, @value) = receive($threads, 'map', qr//, qr//);
 	return ($thread, $index, @value);
 }
 
 sub new {
-	my $class = shift;
+	my $class   = shift;
 	my %options = (
 		modules => [],
 		threads => $THREADS,
 		@_,
 	);
 	my @modules = ('threads::lite::list', @{ $options{modules} });
-	my %threads = map { ( $_->id => $_ ) }
-		spawn({ modules => \@modules, monitor => 1 , pool_size => $options{threads}}, 'threads::lite::list::_mapper' );
+	my %threads = map { ($_->id => $_) } spawn({ modules => \@modules, monitor => 1, pool_size => $options{threads} }, 'threads::lite::list::_mapper');
 	$_->send(filter => $options{code}) for values %threads;
 	return bless \%threads, $class;
 }
 
 sub map {
 	my ($self, @args) = @_;
-	my ($i, @ret) = 0;
+	my $i = 0;
+	my @ret;
 
-	my $id = self;
-	my %threads = %{ $self };
+	my $id      = self;
+	my %threads = %{$self};
 	for my $thread (values %threads) {
 		last if $i == @args;
 		$thread->send($id, 'map', $i, $args[$i]);
 		$i++;
 	}
 	while ($i < @args) {
-		my ($thread, $index, @value) = _receive_next( [ values %threads ] );
+		my ($thread, $index, @value) = _receive_next([ values %threads ]);
 		$ret[$index] = \@value;
 		$thread->send($id, 'map', $i, $args[$i]);
 		$i++;
 	}
 	while (%threads) {
-		my ($thread, $index, @value) = _receive_next( [ values %threads ] );
+		my ($thread, $index, @value) = _receive_next([ values %threads ]);
 		$ret[$index] = \@value;
 		delete $threads{ $thread->id };
 	}
@@ -91,32 +93,26 @@ sub grep {
 	return @ret;
 }
 
+## no critic (Subroutines::ProhibitSubroutinePrototypes)
+
 sub parallel_map(&@) {
 	my ($code, $options, @args) = @_;
-
-	my $object = __PACKAGE__->new(
-		($options ? %{$options} : ()),
-		code => $code
-	);
+	my $object = __PACKAGE__->new(($options ? %{$options} : ()), code => $code);
 	return $object->map(@args);
 }
 
 sub parallel_grep(&@) {
 	my ($code, $options, @args) = @_;
-
-	my $object = __PACKAGE__->new(
-		($options ? %{$options} : ()),
-		code => $code
-	);
+	my $object = __PACKAGE__->new(($options ? %{$options} : ()), code => $code);
 	return $object->grep(@args);
 }
 
 sub DESTROY {
 	my $self = shift;
-	for my $thread (values %{ $self }) {
+	for my $thread (values %{$self}) {
 		$thread->send('kill');
 		receive('exit', qr//, $thread->id);
-		delete $self->{$thread->id};
+		delete $self->{ $thread->id };
 	}
 	return;
 }

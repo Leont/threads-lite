@@ -4,26 +4,24 @@ use strict;
 use warnings;
 use Scalar::Util qw/blessed/;
 
-use overload 
-	'~~' => sub { 
-		my ($self, $other, $reverse) = @_;
-#		($self, $other) = ($other, $self) if $reverse;
-		if (blessed($other) && $other->isa(__PACKAGE__)) {
-			return $self->id == $other->id;
-		}
-		else {
-			return $self eq $other;
-		}
-	},
-	'""' => sub {
-		my $self = shift;
-		return "thread=${$self}";
-	},
-	'eq' => sub {
-		my ($self, $other, $reverse) = @_;
-		($self, $other) = ($other, $self) if $reverse;
-		return "$self" ~~ $other;
-	};
+use overload '~~' => sub {
+	my ($self, $other, $reverse) = @_;
+	if (blessed($other) && $other->isa(__PACKAGE__)) {
+		return $self->id == $other->id;
+	}
+	else {
+		return $self eq $other;
+	}
+  },
+  '""' => sub {
+	my $self = shift;
+	return "thread=${$self}";
+  },
+  'eq' => sub {
+	my ($self, $other, $reverse) = @_;
+	($self, $other) = ($other, $self) if $reverse;
+	return "$self" ~~ $other;
+  };
 
 use threads::lite qw/self receive/;
 

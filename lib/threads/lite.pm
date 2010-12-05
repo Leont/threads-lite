@@ -7,96 +7,125 @@ our $VERSION = '0.028';
 
 use 5.010;
 
-use Exporter 5.57 qw/import/;
+use Exporter 5.57 qw//;
 use Storable 2.05 ();
 
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
-our @EXPORT_OK = qw/spawn receive receive_nb receive_table receive_table_nb self send_to/;
+our @EXPORT_OK   = qw/spawn receive_match receive receive_nb receive_table receive_table_nb self send_to/;
 our %EXPORT_TAGS = (
-	receive => [ qw/receive receive_nb receive_table receive_table_nb/ ],
+	receive => [qw/receive receive_nb receive_table receive_table_nb/],
 	all     => \@EXPORT_OK,
 );
 
 require threads::lite::tid;
 use threads::lite::queue;
 
+sub import {
+	feature->import('switch');
+	goto &Exporter::import;
+}
+
 sub _receive;
 sub _receive_nb;
 sub self;
 
-my @message_cache;
-
-sub _deep_equals {
-	my ($message, $criterion) = @_;
-	return if $#{$message} < $#{$criterion};
-	for my $i (0..$#{$criterion}) {
-		return 0 if not $message->[$i] ~~ $criterion->[$i];
-	}
-	return 1;
-}
+my @mailbox;
 
 ##no critic (Subroutines::RequireFinalReturn)
 
+sub receive {
+	my @args = @_;
+	if (@args) {
+		for my $index (0..$#mailbox) {
+			return @{ splice @mailbox, $index, 1 } if $mailbox[$index] ~~ @args;
+		}
+		while (1) {
+			my $message = _receive;
+			return @{$message} if @{$message} ~~ @args;
+			push @mailbox, $message;
+		}
+	}
+	else {
+		return _return_elements(@mailbox ? shift @mailbox : _receive);
+	}
+}
+
 sub receive_nb {
 	my @args = @_;
-	if (my @ret = _match_mailbox(\@args)) {
-		return @ret;
+	if (@args) {
+		for my $index (0..$#mailbox) {
+			return @{ splice @mailbox, $index, 1 } if $mailbox[$index] ~~ @args;
+		}
+		while (my $message = _receive_nb) {
+			return @{$message} if @{$message} ~~ @args;
+			push @mailbox, $message;
+		}
+		return;
 	}
-	while (my @next = _receive_nb) {
-		return _return_elements(\@next) if _deep_equals(\@next, \@args);
-		_push_mailbox(\@next);
+	else {
+		return _return_elements(@mailbox ? shift @mailbox : _receive_nb);
 	}
-	return;
 }
 
-sub receive_table {
-	my @args = @_;
-	my @table;
+## no critic (Subroutines::RequireArgUnpacking,Subroutines::ProhibitSubroutinePrototypes)
 
-	push @table, [ splice @args, 0, 2 ] while @args >= 2;
+sub receive_match(&) {
+	my $receive = shift;
 
-	for my $pair (@table) {
-		if (my @ret = _match_mailbox($pair->[0])) {
-			$pair->[1]->(@ret) if defined $pair->[1];
-			return _return_elements(\@ret);
-		}
-	}
+	my @save;
+	my $i = 0;
+	MESSAGE:
 	while (1) {
-		my @next = _receive;
-		for my $pair (@table) {
-			if (_deep_equals(\@next, $pair->[0])) {
-				$pair->[1]->(@next) if defined $pair->[1];
-				return _return_elements(\@next);
-			}
+		my $message;
+		if ($i < @mailbox) {
+			$message = splice @mailbox, $i, 1, @save;
+			$i += @save;
 		}
-		_push_mailbox(\@next);
+		else {
+			push @mailbox, @save;
+			$message = _receive;
+		}
+
+		for ($message) {
+			$receive->();
+			@save = ($message);
+			redo MESSAGE;
+		}
+		continue {
+			return _return_elements($message);
+		}
 	}
 }
 
-sub receive_table_nb {
-	my @args = @_;
-	my @table;
+sub receive_match_nb(&) {
+	my $receive = shift;
+	my @save;
 
-	push @table, [ splice @args, 0, 2 ] while @args >= 2;
+	my $i = 0;
+	MESSAGE:
+	while (1) {
+		my $message;
+		if ($i < @mailbox) {
+			$message = splice @mailbox, $i, 1, @save;
+			$i += @save;
+		}
+		else {
+			push @mailbox, @save;
+			$message = _receive;
+			return if @{$message} == 0;
+		}
 
-	for my $pair (@table) {
-		if (my @ret = _match_mailbox($pair->[0])) {
-			$pair->[1]->(@ret) if defined $pair->[1];
-			return _return_elements(\@ret);
+		for ($message) {
+			$receive->();
+			@save = ($message);
+			redo MESSAGE;
+		}
+		continue {
+			return _return_elements($message);
 		}
 	}
-	while (my @next = _receive) {
-		for my $pair (@table) {
-			if (_deep_equals(\@next, $pair->[0])) {
-				$pair->[1]->(@next) if defined $pair->[1];
-				return _return_elements(\@next);
-			}
-		}
-		_push_mailbox(\@next);
-	}
-	return;
 }
 
 1;
@@ -105,7 +134,7 @@ __END__
 
 =head1 NAME
 
-threads::lite - Erlang style threading library
+threads::lite - Actor model threading for Perl
 
 =head1 VERSION
 
@@ -122,6 +151,7 @@ Version 0.028
          chomp;
          $other->send(line => $_);
      }
+	 return;
  }
 
  my $child = spawn({ monitor => 1 } , \&child);
@@ -129,19 +159,19 @@ Version 0.028
 
  my $continue = 1;
  while ($continue) {
-	 receive_table(
-		 [ 'line' ] => sub {
+	 receive_match {
+		 when([ 'line', qr//]) {
 			 my (undef, $line) = @_;
 			 say "received line: $line";
-		 },
-		 [ 'exit', qr//, $child->id ] => sub {
+		 }
+		 when([ 'exit', qr//, $child->id ]) {
 			 say "received end of file";
 			 $continue = 0;
-		 },
-		 [] => sub {
+		 }
+		 default {
 			 die sprintf "Got unknown message: (%s)", join ", ", @_;
-		 },
-	 );
+		 }
+	 };
  };
 
 =head1 DESCRIPTION
@@ -190,35 +220,23 @@ Send a message a thread identified by its primitive identifier
 
 =head2 Receiving functions
 
-threads::lite defines four functions for receiving messages from the thread's mailbox. Each of them accepts matching patterns used to select those messages. Pattern matching works like this:
-
-=over 2
-
-=item * If the pattern contains more elements than the message, the match fails.
-
-=item * If the pattern contains more elements than the message, the superfluous elements are ignored for the match.
-
-=item * Each of the elements in the message is smartmatched against the corresponding element in the pattern. Smartmatching semantics are defined in L<perlsyn|perlsyn/<"Smart-matching-in-detail">. If an element fails, the whole match fails.
-
-=item * When a match fails, the next message on the queue is tried.
-
-=back
+All these functions will try to match messages in the local thread's mailbox to a pattern. If it can find a match, the message will be removed from the mailbox.
 
 =head3 receive(@pattern)
 
-Return the first message matching pattern @pattern. If there is no such message in the queue, it blocks until a suitable message is received.
+Return the first message that smart-matches @pattern. If there is no such message in the queue, it blocks until a suitable message is received. An empty pattern results in the first message 
 
 =head3 receive_nb(@pattern)
 
-Return the first message matching pattern @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
+Return the first message that smart-matches @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
 
-=head3 receive_table( [@pattern] => action...)
+=head3 receive_match { ... }
 
-This goes through each of the patterns until it can find one that matches a message on the queue, and call its action if it is defined. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received.
+Match each message against the code in the block until a message matches it. The block is expected to contain C<when> and C<default> blocks, but may contain other code too. If no matching message is found, it will block until a suitable message is received.
 
-=head3 receive_table_nb( [@pattern] => action...)
+=head3 receive_match_nb { ... }
 
-This goes through each of the patterns until it can find one that matches a message on the queue, and call its action if it is defined. If none of the patterns match any of the messages in the queue, it blocks until a suitable message is received. If none of the patterns match any of the messages in the queue, it return an empty list.
+Match in exactly the same way receive_match does, but do not block if no suitable message can be found. Instead it will return an empty list.
 
 =head1 AUTHOR
 
