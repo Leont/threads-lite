@@ -11,8 +11,7 @@
 
 static SV* S_message_get_sv(pTHX_ message* message) {
 	SV* stored = newSVpvn(message->string.ptr, message->string.length);
-	PerlMemShared_free(message->string.ptr);
-	message->string.ptr = NULL;
+	message_destroy(message);
 	return stored;
 }
 
@@ -97,7 +96,7 @@ void S_message_to_stack(pTHX_ message* message, U32 context) {
 			PUSHs(sv_2mortal(newRV_noinc(message_get_sv(message))));
 			break;
 		case PACKED: {
-			SV* mess = message_get_sv(message);
+			SV* mess = sv_2mortal(message_get_sv(message));
 			STRLEN len;
 			const char* packed = SvPV(mess, len);
 			PUTBACK;
@@ -161,7 +160,6 @@ AV* S_message_to_array(pTHX_ message* message) {
 }
 
 void S_message_clone(pTHX_ message* origin, message* clone) {
-	clone->type = origin->type;
 	switch (origin->type) {
 		case EMPTY:
 			Perl_croak(aTHX_ "Empty messages aren't allowed yet\n");
@@ -169,6 +167,7 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 		case STRING:
 		case PACKED:
 		case STORABLE:
+			clone->type = origin->type;
 			clone->string.length = origin->string.length;
 			clone->string.ptr = savesharedpvn(origin->string.ptr, origin->string.length);
 			break;

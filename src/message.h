@@ -31,3 +31,4 @@ void S_message_store_value(pTHX_ message* message, SV* value);
 SV* S_message_load_value(pTHX_ message* message);
 #define message_load_value(message) S_message_load_value(aTHX_ message)
 
+void message_destroy(message*);

@@ -128,14 +128,18 @@ static void* run_thread(void* arg) {
 	PERL_SET_CONTEXT(my_perl);
 
 	queue_dequeue(&thread->queue, &to_run, NULL);
+
+	ENTER;
+	SAVETMPS;
 	call = SvRV(message_load_value(&to_run));
 
 	PUSHMARK(SP);
-	PUSHs(newSVpvn("exit", 4));
+	mXPUSHs(newSVpvn("exit", 4));
 	status = newSVpvn("normal", 6);
-	PUSHs(status);
-	PUSHs(newSViv(thread->id));
+	mXPUSHs(status);
+	mXPUSHs(newSViv(thread->id));
 
+	ENTER;
 	PUSHMARK(SP);
 	PUTBACK;
 	call_sv(call, G_ARRAY|G_EVAL);
@@ -146,9 +150,15 @@ static void* run_thread(void* arg) {
 		warn("Thread %"UVuf" got error %s\n", thread->id, SvPV_nolen(ERRSV));
 		PUSHs(ERRSV);
 	}
+
 	message_from_stack_pushed(&message);
+	LEAVE;
+
 	send_listeners(thread, &message);
 	message_destroy(&message);
+
+	FREETMPS;
+	LEAVE;
 
 	shutdown_mutex = get_shutdown_mutex();
 
