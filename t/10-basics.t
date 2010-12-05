@@ -9,7 +9,7 @@ use Time::HiRes qw/sleep/;
 
 use threads::lite qw/spawn receive_match self/;
 
-my $thread = spawn({ load  => ['Carp'], monitor => 1 }, \&thread );
+my $thread = spawn({ modules => ['Carp'], monitor => 1 }, \&thread );
 
 $thread->send(self());
 
