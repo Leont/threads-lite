@@ -286,12 +286,16 @@ static void save_modules(pTHX, message* message, HV* options) {
 
 static void load_modules(pTHX, message* list_mess) {
 	if (list_mess->type) {
-		SAVETMPS;
-		SV* list_ref = message_load_value(list_mess);
-		SvREFCNT_inc(list_ref);
-		AV* list = (AV*)SvRV(list_ref);
-		I32 len = av_len(list) + 1;
+		SV* list_ref;
+		AV* list;
+		I32 len;
 		int i;
+
+		SAVETMPS;
+		list_ref = message_load_value(list_mess);
+		SvREFCNT_inc(list_ref);
+		list = (AV*)SvRV(list_ref);
+		len = av_len(list) + 1;
 		for(i = 0; i < len; i++) {
 			SV** entry = av_fetch(list, i, FALSE);
 			load_module(PERL_LOADMOD_NOIMPORT, *entry, NULL, NULL);

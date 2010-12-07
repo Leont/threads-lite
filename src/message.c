@@ -42,12 +42,12 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 	PUTBACK;
 }
 
-static inline int S_is_simple(pTHX_ SV* value) {
+static int S_is_simple(pTHX_ SV* value) {
 	return SvOK(value) && !SvROK(value) && !(SvPOK(value) && SvUTF8(value));
 }
 #define is_simple(value) S_is_simple(aTHX_ value)
 
-static inline int S_are_simple(pTHX_ SV** begin, SV** end) {
+static int S_are_simple(pTHX_ SV** begin, SV** end) {
 	SV** current;
 	for(current = begin; current <= end; current++)
 		if (! is_simple(*current))
@@ -77,6 +77,7 @@ void S_message_from_stack(pTHX_ message* message) {
 
 SV* S_message_load_value(pTHX_ message* message) {
 	dSP;
+	SV* ret;
 
 	sv_setiv(save_scalar(gv_fetchpv("Storable::Eval", TRUE | GV_ADDMULTI, SVt_PV)), 1);
 	PUSHMARK(SP);
@@ -84,7 +85,7 @@ SV* S_message_load_value(pTHX_ message* message) {
 	PUTBACK;
 	call_pv("Storable::thaw", G_SCALAR);
 	SPAGAIN;
-	SV* ret = POPs;
+	ret = POPs;
 	PUTBACK;
 	return ret;
 }
