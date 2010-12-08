@@ -176,7 +176,9 @@ Version 0.028
 
 =head1 DESCRIPTION
 
-This module implements threads for perl. One crucial difference with normal threads is that the threads are disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
+This module implements threads for perl. One crucial difference with C<threads.pm> threads is that the threads are disconnected, except by message queues. It thus facilitates a message passing style of multi-threading.
+
+Please note that B<this module is a research project>. In no way is API stability guaranteed. It is released for evaluation purposes only, not for production usage.
 
 =head1 FUNCTIONS
 
@@ -196,7 +198,7 @@ Load the specified modules before running any code.
 
 =item * pool_size => int
 
-Create C<pool_size> identical clones. The threads are cloned right after module load time, but before any code is run.
+Create C<pool_size> identical clones.
 
 =item * monitor => 0/1
 
@@ -208,11 +210,11 @@ The stack size for the newly created threads. It defaults to 64 kiB.
 
 =back
 
-$sub can be a function name or a subref. If it is a name, you must make sure the module it is in is loaded in the new thread. If it is a reference it will be serialized and sent to the new thread. This means that any enclosed variables will probability not work as expected.
+$sub can be a function name or a subref. If it is a name, you must make sure the module it is in is loaded in the new thread. If it is a reference to a function it will be serialized before being sent to the new thread. This means that any enclosed variables will probability not work as expected. Any locally imported functions will not be defined in the new thread, so you probably want to use fully qualified names.
 
 =head3 self()
 
-Retreive the tid corresponding with the current thread.
+Retreive the thread identifier object corresponding with the current thread.
 
 =head3 send_to($id, ...)
 
