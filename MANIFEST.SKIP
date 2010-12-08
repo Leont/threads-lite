@@ -13,3 +13,5 @@ threads-lite-.*
 .*\.o$
 ^.ignore
 ^benchmark$
+^MYMETA.yml$
+^Makefile$
