@@ -9,8 +9,8 @@ typedef struct {
 } message_queue;
 
 void queue_init(message_queue*);
-void queue_destroy(message_queue*);
 void queue_enqueue(message_queue* queue, message* message, perl_mutex* lock);
 void queue_dequeue(message_queue* queue, message* message, perl_mutex* lock);
 bool queue_dequeue_nb(message_queue* queue, message* message, perl_mutex* lock);
-
+void S_queue_destroy(pTHX_ message_queue*);
+#define queue_destroy(queue) S_queue_destroy(aTHX_ queue)

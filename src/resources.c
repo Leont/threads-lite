@@ -114,6 +114,8 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 
 void mthread_destroy(mthread* thread) {
 	MUTEX_LOCK(&threads.lock);
+
+	PerlInterpreter* my_perl = thread->interp;
 	threads.objects[thread->id] = NULL;
 	queue_destroy(&thread->queue);
 	MUTEX_UNLOCK(&threads.lock);

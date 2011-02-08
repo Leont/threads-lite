@@ -408,8 +408,8 @@ void S_create_push_threads(tTHX self, HV* options, SV* startup) {
 		queue_enqueue(&thread->queue, &to_run, NULL);
 		start_thread(thread, thread_options.stack_size);
 	}
-	message_destroy(&thread_options.to_run);
-	message_destroy(&thread_options.modules);
-
 	PERL_SET_CONTEXT(self);
+
+	S_message_destroy(self, &thread_options.to_run);
+	S_message_destroy(self, &thread_options.modules);
 }

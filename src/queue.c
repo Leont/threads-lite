@@ -33,16 +33,19 @@ static void node_push(queue_node** end, queue_node* new_node) {
 	new_node->next = NULL;
 }
 
-static void node_destroy(struct queue_node* current) {
-	while (current != NULL) {
-		struct queue_node* next = current->next;
-		message_destroy(&current->message);
-		PerlMemShared_free(current);
+static void S_node_destroy(pTHX_ struct queue_node** current) {
+	while (*current != NULL) {
+		struct queue_node** next = &(*current)->next;
+		message_destroy(&(*current)->message);
+		PerlMemShared_free(*current);
+		*current = NULL;
 		current = next;
 	}
 }
+#define node_destroy(current) S_node_destroy(aTHX_ current)
 
 void queue_init(message_queue* queue) {
+	Zero(queue, 1, message_queue);
 	MUTEX_INIT(&queue->mutex);
 	COND_INIT(&queue->condvar);
 }
@@ -110,10 +113,10 @@ bool queue_dequeue_nb(message_queue* queue, message* input, perl_mutex* external
 	}
 }
 
-void queue_destroy(message_queue* queue) {
+void S_queue_destroy(pTHX_ message_queue* queue) {
 	MUTEX_LOCK(&queue->mutex);
-	node_destroy(queue->front);
-	node_destroy(queue->reserve);
+	node_destroy(&queue->front);
+	node_destroy(&queue->reserve);
 	COND_DESTROY(&queue->condvar);
 	MUTEX_UNLOCK(&queue->mutex);
 	MUTEX_DESTROY(&queue->mutex);

@@ -177,7 +177,7 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 	}
 }
 
-void message_destroy(message* message) {
+void S_message_destroy(pTHX_ message* message) {
 	switch (message->type) {
 		case EMPTY:
 			break;
