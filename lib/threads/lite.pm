@@ -39,11 +39,11 @@ sub receive {
 	my @args = @_;
 	if (@args) {
 		for my $index (0..$#mailbox) {
-			return @{ splice @mailbox, $index, 1 } if $mailbox[$index] ~~ @args;
+			return _return_elements(splice @mailbox, $index, 1) if $mailbox[$index] ~~ @args;
 		}
 		while (1) {
 			my $message = _receive;
-			return @{$message} if @{$message} ~~ @args;
+			return _return_elements($message) if $message ~~ @args;
 			push @mailbox, $message;
 		}
 	}
@@ -56,16 +56,17 @@ sub receive_nb {
 	my @args = @_;
 	if (@args) {
 		for my $index (0..$#mailbox) {
-			return @{ splice @mailbox, $index, 1 } if $mailbox[$index] ~~ @args;
+			return _return_elements(splice @mailbox, $index, 1) if $mailbox[$index] ~~ @args;
 		}
 		while (my $message = _receive_nb) {
-			return @{$message} if @{$message} ~~ @args;
+			return _return_elements($message) if $message ~~ @args;
 			push @mailbox, $message;
 		}
 		return;
 	}
 	else {
-		return _return_elements(@mailbox ? shift @mailbox : _receive_nb);
+		my $ret = @mailbox ? shift @mailbox : _receive_nb;
+		return $ret ? _return_elements($ret) : $ret;
 	}
 }
 
@@ -91,7 +92,7 @@ sub receive_match(&) {
 		for ($message) {
 			$receive->();
 			@save = ($message);
-			redo MESSAGE;
+			next MESSAGE;
 		}
 		continue {
 			return _return_elements($message);
@@ -113,14 +114,14 @@ sub receive_match_nb(&) {
 		}
 		else {
 			push @mailbox, @save;
-			$message = _receive;
-			return if @{$message} == 0;
+			$message = _receive_nb;
+			return if not $message;
 		}
 
 		for ($message) {
 			$receive->();
 			@save = ($message);
-			redo MESSAGE;
+			next MESSAGE;
 		}
 		continue {
 			return _return_elements($message);
