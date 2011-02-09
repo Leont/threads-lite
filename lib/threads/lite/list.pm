@@ -7,7 +7,7 @@ use Exporter 5.57 qw/import/;
 
 our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
-use threads::lite qw/self spawn receive receive_table receive_match/;
+use threads::lite qw/self spawn receive receive_match/;
 use constant DEFAULT_THREADS => 4;
 use Carp qw/carp/;
 

@@ -13,9 +13,9 @@ use Storable 2.05 ();
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
-our @EXPORT_OK   = qw/spawn receive_match receive receive_nb receive_table receive_table_nb self send_to/;
+our @EXPORT_OK   = qw/spawn receive receive_nb receive_match receive_match_nb self send_to/;
 our %EXPORT_TAGS = (
-	receive => [qw/receive receive_nb receive_table receive_table_nb/],
+	receive => [qw/receive receive_nb receive_match receive_match_nb/],
 	all     => \@EXPORT_OK,
 );
 
