@@ -1,5 +1,15 @@
 Revision history for threads-lite
 
+0.029_002  2011-02-10
+           Fixed return values of receive, receive_nb and receive_match_nb
+           Fixed deallocation issue on Win32 
+           Fixed list of exports
+
+0.029_001  2010-12-08
+           Replaced receive_table with receive_match
+           Don't clone when creating a set of threads
+           Improved C89 compatibility
+
 0.028      2010-06-13
            Refactoring and bugfixing for greater stability
 
