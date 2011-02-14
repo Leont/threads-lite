@@ -1,5 +1,8 @@
 Revision history for threads-lite
 
+0.029_003  2011-02-14
+           Remove av_create_and_push usage
+
 0.029_002  2011-02-10
            Fixed return values of receive, receive_nb and receive_match_nb
            Fixed deallocation issue on Win32 
