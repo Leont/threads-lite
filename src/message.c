@@ -133,7 +133,8 @@ AV* S_message_to_array(pTHX_ message* message) {
 	AV* ret;
 	switch(message->type) {
 		case STRING:
-			av_create_and_push(&ret, message_get_sv(message));
+			ret = newAV();
+			av_push(ret, message_get_sv(message));
 			break;
 		case PACKED: {
 			SV* mess = message_get_sv(message);
