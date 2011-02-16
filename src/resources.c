@@ -22,15 +22,15 @@ typedef struct {
 	void** objects;
 } resource;
 
-static S_resource_init(resource* res, UV preallocate) {
+static S_resource_init(pTHX_ resource* res, UV preallocate) {
 	MUTEX_INIT(&res->lock);
 	res->objects = PerlMemShared_calloc(preallocate, sizeof(void*));
 	res->allocated = preallocate;
 }
 
-#define resource_init(res, pre) S_resource_init(res, pre)
+#define resource_init(res, pre) S_resource_init(aTHX_ res, pre)
 
-static UV resource_addobject(resource* res, void* object) {
+static UV S_resource_addobject(pTHX_ resource* res, void* object) {
 	UV ret;
 	MUTEX_LOCK(&res->lock);
 	ret = res->current;
@@ -40,6 +40,7 @@ static UV resource_addobject(resource* res, void* object) {
 	MUTEX_UNLOCK(&res->lock);
 	return ret;
 }
+#define resource_addobject(res, obj) S_resource_addobject(aTHX_ res, obj)
 
 static resource threads;
 static resource queues;
@@ -136,7 +137,7 @@ static mthread* S_get_thread(pTHX_ UV thread_id) {
 
 #define get_thread(id) S_get_thread(aTHX_ id)
 
-UV queue_alloc(IV linked_to) {
+UV S_queue_alloc(pTHX_ IV linked_to) {
 	message_queue* queue;
 	queue = PerlMemShared_calloc(1, sizeof *queue);
 	queue_init(queue);
