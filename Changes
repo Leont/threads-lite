@@ -1,5 +1,9 @@
 Revision history for threads-lite
 
+0.029_004  2011-02-16
+           Renamed receiving functions
+           Fixed more allocation issues on Win32
+
 0.029_003  2011-02-14
            Remove av_create_and_push usage
 
