@@ -7,7 +7,7 @@ use Exporter 5.57 qw/import/;
 
 our @EXPORT_OK = qw/parallel_map parallel_grep/;
 
-use threads::lite qw/self spawn receive receive_match/;
+use threads::lite qw/self spawn receive receiveq/;
 use constant DEFAULT_THREADS => 4;
 use Carp qw/carp/;
 
@@ -15,10 +15,10 @@ our $VERSION = 0.029_003;
 our $THREADS ||= DEFAULT_THREADS;
 
 sub _mapper {
-	my (undef, $filter) = receive('filter', qr//);
+	my (undef, $filter) = receiveq('filter', qr//);
 	my $continue = 1;
 	while ($continue) {
-		receive_match {
+		receive {
 			when (@$_ == 4) {
 				my ($manager, undef, $index, $value) = @$_;
 				local $_ = $value;
@@ -37,7 +37,7 @@ sub _mapper {
 
 sub _receive_next {
 	my $threads = shift;
-	my ($thread, undef, $index, @value) = receive($threads, 'map', qr//, qr//);
+	my ($thread, undef, $index, @value) = receiveq($threads, 'map', qr//, qr//);
 	return ($thread, $index, @value);
 }
 
@@ -111,7 +111,7 @@ sub DESTROY {
 	my $self = shift;
 	for my $thread (values %{$self}) {
 		$thread->send('kill');
-		receive('exit', qr//, $thread->id);
+		receiveq('exit', qr//, $thread->id);
 		delete $self->{ $thread->id };
 	}
 	return;

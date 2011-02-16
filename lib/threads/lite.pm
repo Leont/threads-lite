@@ -13,9 +13,9 @@ use Storable 2.05 ();
 use XSLoader;
 XSLoader::load('threads::lite', $VERSION);
 
-our @EXPORT_OK   = qw/spawn receive receive_nb receive_match receive_match_nb self send_to/;
+our @EXPORT_OK   = qw/spawn receive receive_nb receiveq receiveq_nb self send_to/;
 our %EXPORT_TAGS = (
-	receive => [qw/receive receive_nb receive_match receive_match_nb/],
+	receive => [qw/receive receive_nb receiveq receiveq_nb/],
 	all     => \@EXPORT_OK,
 );
 
@@ -35,7 +35,7 @@ my @mailbox;
 
 ##no critic (Subroutines::RequireFinalReturn)
 
-sub receive {
+sub receiveq {
 	my @args = @_;
 	if (@args) {
 		for my $index (0..$#mailbox) {
@@ -52,7 +52,7 @@ sub receive {
 	}
 }
 
-sub receive_nb {
+sub receiveq_nb {
 	my @args = @_;
 	if (@args) {
 		for my $index (0..$#mailbox) {
@@ -72,7 +72,7 @@ sub receive_nb {
 
 ## no critic (Subroutines::RequireArgUnpacking,Subroutines::ProhibitSubroutinePrototypes)
 
-sub receive_match(&) {
+sub receive(&) {
 	my $receive = shift;
 
 	my @save;
@@ -100,7 +100,7 @@ sub receive_match(&) {
 	}
 }
 
-sub receive_match_nb(&) {
+sub receive_nb(&) {
 	my $receive = shift;
 	my @save;
 
@@ -145,14 +145,15 @@ Version 0.029_003
 
  use Modern::Perl;
  use threads::lite qw/spawn self receive receive_table/;
+ use SmartMatch::Sugar;
 
  sub child {
-     my $other = threads::lite::receive;
+     my $other = threads::lite::receiveq;
      while (<>) {
          chomp;
          $other->send(line => $_);
      }
-	 return;
+     return;
  }
 
  my $child = spawn({ monitor => 1 } , \&child);
@@ -160,19 +161,19 @@ Version 0.029_003
 
  my $continue = 1;
  while ($continue) {
-	 receive_match {
-		 when([ 'line', qr//]) {
-			 my (undef, $line) = @_;
-			 say "received line: $line";
-		 }
-		 when([ 'exit', qr//, $child->id ]) {
-			 say "received end of file";
-			 $continue = 0;
-		 }
-		 default {
-			 die sprintf "Got unknown message: (%s)", join ", ", @_;
-		 }
-	 };
+     receive {
+         when([ 'line', any ]) {
+             my (undef, $line) = @$_;
+             say "received line: $line";
+         }
+         when([ 'exit', any, $child->id ]) {
+             say "received end of file";
+             $continue = 0;
+         }
+         default {
+             die sprintf "Got unknown message: (%s)", join ", ", @$_;
+         }
+     };
  };
 
 =head1 DESCRIPTION
@@ -225,21 +226,21 @@ Send a message a thread identified by its primitive identifier
 
 All these functions will try to match messages in the local thread's mailbox to a pattern. If it can find a match, the message will be removed from the mailbox.
 
-=head3 receive(@pattern)
-
-Return the first message that smart-matches @pattern. If there is no such message in the queue, it blocks until a suitable message is received. An empty pattern results in the first message 
-
-=head3 receive_nb(@pattern)
-
-Return the first message that smart-matches @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
-
-=head3 receive_match { ... }
+=head3 receive { ... }
 
 Match each message against the code in the block until a message matches it. The block is expected to contain C<when> and C<default> blocks, but may contain other code too. If no matching message is found, it will block until a suitable message is received.
 
-=head3 receive_match_nb { ... }
+=head3 receive_nb { ... }
 
-Match in exactly the same way receive_match does, but do not block if no suitable message can be found. Instead it will return an empty list.
+Match in exactly the same way receive does, but do not block if no suitable message can be found. Instead it will return an empty list.
+
+=head3 receiveq(@pattern)
+
+Return the first message that smart-matches @pattern. If there is no such message in the queue, it blocks until a suitable message is received. An empty pattern results in the first message 
+
+=head3 receiveq_nb(@pattern)
+
+Return the first message that smart-matches @pattern. If there is no such message in the queue, it returns an empty list (undef in scalar context).
 
 =head1 AUTHOR
 

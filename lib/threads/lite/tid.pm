@@ -30,7 +30,7 @@ our $VERSION = 0.029_003;
 sub rpc {
 	my ($self, @arguments) = @_;
 	$self->send(self, @arguments);
-	my (undef, @ret) = receive($self);
+	my (undef, @ret) = receiveq($self);
 	return (@ret);
 }
 

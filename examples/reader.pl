@@ -1,8 +1,10 @@
 use Modern::Perl;
-use threads::lite qw/spawn self receive_match/;
+use threads::lite qw/spawn self receive/;
+use SmartMatch::Sugar;
 
 sub child {
-	my $other = threads::lite::receive;
+	require threads::lite;
+	my $other = threads::lite::receiveq();
 	say "Other is $other";
 	while (<>) {
 		chomp;
@@ -15,16 +17,16 @@ my $self = self;
 my $child = spawn({ monitor => 1 } , \&child);
 $child->send($self);
 
+say "Trying";
 my $continue = 1;
 while ($continue) {
-	say "trying";
-	receive_match {
+	receive {
 		say "Got @{$_}";
-		when([ 'line' ]) {
-			my (undef, $line) = @_;
+		when([ 'line', any ]) {
+			my (undef, $line) = @{$_};
 			say "received line: $line";
 		}
-		when([ 'exit', qr//, $child->id ]) {
+		when([ 'exit', any, $child->id ]) {
 			say "received end of file";
 			$continue = 0;
 		}

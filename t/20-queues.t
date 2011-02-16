@@ -6,10 +6,10 @@ use warnings;
 use Test::More tests => 3;
 use Test::Differences;
 
-use threads::lite qw/spawn receive_match/;
+use threads::lite qw/spawn receive/;
 
 my $thread = spawn({ monitor => 1 }, sub { 
-	my (undef, $queue) = threads::lite::receive('queue', qr//);
+	my (undef, $queue) = threads::lite::receiveq('queue', qr//);
 	$queue->enqueue(qw/foo bar baz/);
 	$queue->enqueue(qw/1 2 3/);
 	});
@@ -25,7 +25,7 @@ my @second = $queue->dequeue;
 eq_or_diff \@first, [ qw/foo bar baz/ ], 'first entry is right';
 eq_or_diff \@second, [ qw/1 2 3/ ], 'first entry is right';
 
-receive_match {
+receive {
 	when([ 'exit', 'normal', $thread->id ]) {
 		eq_or_diff $_, [ 'exit', 'normal', $thread->id], 'thread returned normally';
 	};

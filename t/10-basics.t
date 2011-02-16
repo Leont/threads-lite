@@ -7,14 +7,14 @@ use Test::More tests => 6;
 use Test::Differences;
 use Time::HiRes qw/sleep/;
 
-use threads::lite qw/spawn receive_match self/;
+use threads::lite qw/spawn receive self/;
 
 my $thread = spawn({ modules => ['Carp'], monitor => 1 }, \&thread );
 
 $thread->send(self());
 
 sub thread {
-	my $other = threads::lite::receive;
+	my $other = threads::lite::receiveq;
 	sleep .1;
 	$other->send('foo');
 	$other->send('bar');
@@ -28,7 +28,7 @@ alarm 5;
 
 my $state = 0;
 for (1 .. 3) {
-	receive_match {
+	receive {
 		when ([ 'exit', 'normal', $thread->id, 42]) {
 			eq_or_diff $_, [ 'exit', 'normal', $thread->id, 42], "Got return value 42";
 			is $state++, 1, 'State is now 1';
@@ -39,7 +39,7 @@ for (1 .. 3) {
 		};
 		when (['bar']) {
 			is $state++, 0, 'Received bar';
-			receive_match {
+			receive {
 				when (['bar']) {
 					fail 'Should match foo after bar';
 					diag('Matched bar instead')
