@@ -111,7 +111,7 @@ sub DESTROY {
 	my $self = shift;
 	for my $thread (values %{$self}) {
 		$thread->send('kill');
-		receiveq('exit', qr//, $thread->id);
+		receiveq('exit', qr//, $thread->id, undef);
 		delete $self->{ $thread->id };
 	}
 	return;

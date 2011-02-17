@@ -12,6 +12,7 @@ my $thread = spawn({ monitor => 1 }, sub {
 	my (undef, $queue) = threads::lite::receiveq('queue', qr//);
 	$queue->enqueue(qw/foo bar baz/);
 	$queue->enqueue(qw/1 2 3/);
+	1;
 	});
 
 alarm 5;
@@ -26,10 +27,10 @@ eq_or_diff \@first, [ qw/foo bar baz/ ], 'first entry is right';
 eq_or_diff \@second, [ qw/1 2 3/ ], 'first entry is right';
 
 receive {
-	when([ 'exit', 'normal', $thread->id ]) {
-		eq_or_diff $_, [ 'exit', 'normal', $thread->id], 'thread returned normally';
-	};
-	when([ 'exit', 'error' ]) {
+	when([ 'exit', 'normal', $thread->id, 1 ]) {
+		eq_or_diff $_, [ 'exit', 'normal', $thread->id, 1 ], 'thread returned normally';
+	}
+	default {
 		ok(0, 'thread returned normally');
-	};
+	}
 };

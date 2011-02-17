@@ -142,7 +142,7 @@ static void* run_thread(void* arg) {
 	ENTER;
 	PUSHMARK(SP);
 	PUTBACK;
-	call_sv(call, G_ARRAY|G_EVAL);
+	call_sv(call, G_SCALAR|G_EVAL);
 	SPAGAIN;
 
 	if (SvTRUE(ERRSV)) {
