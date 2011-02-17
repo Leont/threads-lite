@@ -2,7 +2,7 @@ package threads::lite::queue;
 
 use strict;
 use warnings;
-our $VERSION = 0.029_004;
+our $VERSION = 0.029_005;
 
 use threads::lite;
 
@@ -16,7 +16,7 @@ threads::lite::queue - a threads::lite persistent queue
 
 =head1 VERSION
 
-Version 0.029_004
+Version 0.029_005
 
 =head1 SYNOPSIS
 

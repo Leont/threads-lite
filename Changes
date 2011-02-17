@@ -1,5 +1,11 @@
 Revision history for threads-lite
 
+0.029_005  2011-02-16
+           Start threads in scalar context
+           Fixed queue_dequeue_nb linkage
+           Fixed queue_receive_nb return type
+           Added test for queue->dequeue_nb
+
 0.029_004  2011-02-16
            Renamed receiving functions
            Fixed more allocation issues on Win32
