@@ -195,14 +195,16 @@ void S_queue_receive(pTHX_ UV queue_id, message* message) {
 	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
 }
 
-void S_queue_receive_nb(pTHX_ UV queue_id, message* message) {
+bool S_queue_receive_nb(pTHX_ UV queue_id, message* message) {
 	dXCPT;
+	bool ret;
 
 	MUTEX_LOCK(&queues.lock);
 	THREAD_TRY {
 		message_queue* queue = get_queue(queue_id);
-		queue_dequeue_nb(queue, message, &queues.lock);
+		ret = queue_dequeue_nb(queue, message, &queues.lock);
 	} THREAD_CATCH( MUTEX_UNLOCK(&queues.lock) );
+	return ret;
 }
 
 void S_send_listeners(pTHX_ mthread* thread, message* mess) {
