@@ -2,7 +2,7 @@ package threads::lite::queue;
 
 use strict;
 use warnings;
-our $VERSION = 0.029_005;
+our $VERSION = '0.030';
 
 use threads::lite;
 

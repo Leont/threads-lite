@@ -1,5 +1,8 @@
 Revision history for threads-lite
 
+0.030      2012-03-05
+           Released 0.029_005 as 0.030
+
 0.029_005  2011-02-16
            Start threads in scalar context
            Fixed queue_dequeue_nb linkage

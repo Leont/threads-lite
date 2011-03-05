@@ -11,7 +11,7 @@ use threads::lite qw/self spawn receive receiveq/;
 use constant DEFAULT_THREADS => 4;
 use Carp qw/carp/;
 
-our $VERSION = 0.029_005;
+our $VERSION = '0.030';
 our $THREADS ||= DEFAULT_THREADS;
 
 sub _mapper {
