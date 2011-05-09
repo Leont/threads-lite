@@ -10,7 +10,7 @@
  */
 
 struct queue_node {
-	message message;
+	const message* message;
 	struct queue_node* next;
 };
 
@@ -36,7 +36,8 @@ static void node_push(queue_node** end, queue_node* new_node) {
 static void S_node_destroy(pTHX_ struct queue_node** current) {
 	while (*current != NULL) {
 		struct queue_node** next = &(*current)->next;
-		message_destroy(&(*current)->message);
+		if ((*current)->message)
+			destroy_message((*current)->message);
 		PerlMemShared_free(*current);
 		*current = NULL;
 		current = next;
@@ -50,7 +51,7 @@ void queue_init(message_queue* queue) {
 	COND_INIT(&queue->condvar);
 }
 
-void S_queue_enqueue(pTHX_ message_queue* queue, message* message_, perl_mutex* external_lock) {
+void S_queue_enqueue(pTHX_ message_queue* queue, const message* message_, perl_mutex* external_lock) {
 	queue_node* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
@@ -61,8 +62,7 @@ void S_queue_enqueue(pTHX_ message_queue* queue, message* message_, perl_mutex* 
 	else
 		new_entry = PerlMemShared_calloc(1, sizeof *new_entry);
 
-	Copy(message_, &new_entry->message, 1, message);
-	Zero(message_, 1, message);
+	new_entry->message = message_;
 	new_entry->next = NULL;
 
 	node_push(&queue->back, new_entry);
@@ -73,17 +73,19 @@ void S_queue_enqueue(pTHX_ message_queue* queue, message* message_, perl_mutex* 
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-static void queue_shift(message_queue* queue, message* input) {
+static const message* queue_shift(message_queue* queue) {
 	queue_node* front = node_shift(&queue->front);
-	Copy(&front->message, input, 1, message);
-	Zero(&front->message, 1, message);
+	const message* ret = front->message;
+	front->message = NULL;
 	node_unshift(&queue->reserve, front);
 
 	if (queue->front == NULL)
 		queue->back = NULL;
+	return ret;
 }
 
-void S_queue_dequeue(pTHX_ message_queue* queue, message* input, perl_mutex* external_lock) {
+const message* S_queue_dequeue(pTHX_ message_queue* queue, perl_mutex* external_lock) {
+	const message* ret;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		MUTEX_UNLOCK(external_lock);
@@ -91,25 +93,26 @@ void S_queue_dequeue(pTHX_ message_queue* queue, message* input, perl_mutex* ext
 	while (!queue->front)
 		COND_WAIT(&queue->condvar, &queue->mutex);
 
-	queue_shift(queue, input);
-
+	ret = queue_shift(queue);
 	MUTEX_UNLOCK(&queue->mutex);
+
+	return ret;
 }
 
-bool S_queue_dequeue_nb(pTHX_ message_queue* queue, message* input, perl_mutex* external_lock) {
+const message* S_queue_dequeue_nb(pTHX_ message_queue* queue, perl_mutex* external_lock) {
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		MUTEX_UNLOCK(external_lock);
 
 	if (queue->front) {
-		queue_shift(queue, input);
+		const message* ret = queue_shift(queue);
 
 		MUTEX_UNLOCK(&queue->mutex);
-		return TRUE;
+		return ret;
 	}
 	else {
 		MUTEX_UNLOCK(&queue->mutex);
-		return FALSE;
+		return NULL;
 	}
 }
 

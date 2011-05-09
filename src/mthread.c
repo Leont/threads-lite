@@ -116,7 +116,7 @@ perl_mutex* get_shutdown_mutex() {
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
 	PerlInterpreter* my_perl = thread->interp;
-	message to_run, message;
+	const message *to_run, *message;
 	SV *call, *status;
 	perl_mutex* shutdown_mutex;
 
@@ -127,11 +127,11 @@ static void* run_thread(void* arg) {
 #endif
 	PERL_SET_CONTEXT(my_perl);
 
-	queue_dequeue(&thread->queue, &to_run, NULL);
+	to_run = queue_dequeue(&thread->queue, NULL);
 
 	ENTER;
 	SAVETMPS;
-	call = SvRV(message_load_value(&to_run));
+	call = SvRV(message_load_value(to_run));
 
 	PUSHMARK(SP);
 	XPUSHs(sv_2mortal(newSVpvn("exit", 4)));
@@ -151,11 +151,11 @@ static void* run_thread(void* arg) {
 		PUSHs(ERRSV);
 	}
 
-	message_from_stack_pushed(&message);
+	message_from_stack_pushed(message);
 	LEAVE;
 
-	send_listeners(thread, &message);
-	message_destroy(&message);
+	send_listeners(thread, message);
+	destroy_message(message);
 
 	FREETMPS;
 	LEAVE;
@@ -276,15 +276,15 @@ static PerlInterpreter* construct_perl() {
 	return my_perl;
 }
 
-static void save_modules(pTHX, message* message, HV* options) {
+static const message* save_modules(pTHX, HV* options) {
 	SV** modules_ptr = hv_fetch(options, "modules", 7, FALSE);
 	if (modules_ptr && SvROK(*modules_ptr) && SvTYPE(SvRV(*modules_ptr)) == SVt_PVAV)
-		message_store_value(message, SvRV(*modules_ptr));
+		return message_store_value(SvRV(*modules_ptr));
 	else
-		Zero(message, 1, message);
+		return NULL;
 }
 
-static void load_modules(pTHX, message* list_mess) {
+static void load_modules(pTHX, const message* list_mess) {
 	if (list_mess->type) {
 		SV* list_ref;
 		AV* list;
@@ -317,8 +317,8 @@ static void push_thread(pTHX, mthread* thread) {
 
 struct thread_create {
 	UV parent_id;
-	message to_run;
-	message modules;
+	const message* to_run;
+	const message* modules;
 	int monitor;
 	size_t stack_size;
 };
@@ -333,9 +333,9 @@ static IV get_iv_option(pTHX_ HV* options, const char* key, IV default_value) {
 static int prepare_thread_create(pTHX, struct thread_create* new_thread, HV* options, SV* startup) {
 	UV id = get_self()->id;
 
-	message_store_value(&new_thread->to_run, startup);
+	new_thread->to_run = message_store_value(startup);
 
-	save_modules(aTHX, &new_thread->modules, options);
+	new_thread->modules = save_modules(aTHX, options);
 
 	new_thread->monitor = get_iv_option(aTHX, options, "monitor", FALSE);
 	new_thread->stack_size = get_iv_option(aTHX, options, "stack_size", 65536);
@@ -371,7 +371,7 @@ void S_create_push_threads(tTHX self, HV* options, SV* startup) {
 #endif /* USE_SAFE */
 		PerlInterpreter* my_perl;
 		mthread* thread;
-		message to_run;
+		const message* to_run;
 
 		my_perl = construct_perl();
 
@@ -381,10 +381,9 @@ void S_create_push_threads(tTHX self, HV* options, SV* startup) {
 		if (thread_options.monitor)
 			thread_add_listener(self, thread->id, thread_options.parent_id);
 
-		if (thread_options.modules.type) {
-			message modules;
-			message_clone(&thread_options.modules, &modules);
-			load_modules(my_perl, &modules);
+		if (thread_options.modules && thread_options.modules->type) {
+			const message* modules = message_clone(thread_options.modules);
+			load_modules(my_perl, modules);
 		}
 
 		push_thread(self, thread);
@@ -398,18 +397,19 @@ void S_create_push_threads(tTHX self, HV* options, SV* startup) {
 			store_self(my_clone, thread);
 			if (thread_options.monitor)
 				thread_add_listener(self, thread->id, thread_options.parent_id);
-			message_clone(&thread_options.to_run, &clone);
+			message_clone(thread_options.to_run, &clone);
 			queue_enqueue(&thread->queue, &clone, NULL);
 			push_thread(self, thread);
 			start_thread(thread, thread_options.stack_size);
 		}
 #endif
-		message_clone(&thread_options.to_run, &to_run);
-		queue_enqueue(&thread->queue, &to_run, NULL);
+		to_run = message_clone(thread_options.to_run);
+		queue_enqueue(&thread->queue, to_run, NULL);
 		start_thread(thread, thread_options.stack_size);
 	}
 	PERL_SET_CONTEXT(self);
 
-	S_message_destroy(self, &thread_options.to_run);
-	S_message_destroy(self, &thread_options.modules);
+	S_destroy_message(self, thread_options.to_run);
+	if (thread_options.modules)
+		S_destroy_message(self, thread_options.modules);
 }

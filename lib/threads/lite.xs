@@ -54,9 +54,9 @@ _receive()
 		AV* ret;
 	CODE:
 		mthread* thread = get_self();
-		message message;
-		queue_dequeue(&thread->queue, &message, NULL);
-		ret = message_to_array(&message);
+		const message* message = queue_dequeue(&thread->queue, NULL);
+		ret = message_to_array(message);
+		destroy_message(message);
 		RETVAL = newRV_noinc((SV*)ret);
 	OUTPUT:
 		RETVAL
@@ -67,9 +67,10 @@ _receive_nb()
 		AV* ret;
 	CODE:
 		mthread* thread = get_self();
-		message message;
-		if (queue_dequeue_nb(&thread->queue, &message, NULL)) {
-			ret = message_to_array(&message);
+		const message* message = queue_dequeue_nb(&thread->queue, NULL);
+		if (message) {
+			ret = message_to_array(message);
+			destroy_message(message);
 			RETVAL = newRV_noinc((SV*)ret);
 		}
 		else
@@ -108,14 +109,14 @@ void
 send_to(tid, ...)
 	SV* tid;
 	INIT:
-		message message;
+		const message* message;
 		UV thread_id;
 	CODE:
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		thread_id = SvUV(tid);
-		message_from_stack(&message, MARK + 1);
-		thread_send(thread_id, &message);
+		message_from_stack(message, MARK + 1);
+		thread_send(thread_id, message);
 
 MODULE = threads::lite             PACKAGE = threads::lite::tid
 
@@ -125,14 +126,14 @@ void
 send(object, ...)
 	SV* object;
 	INIT:
-		message message;
+		const message* message ;
 		UV thread_id;
 	CODE:
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		thread_id = SvUV(SvRV(object));
-		message_from_stack(&message, MARK + 1);
-		thread_send(thread_id, &message);
+		message_from_stack(message, MARK + 1);
+		thread_send(thread_id, message);
 
 void monitor(object)
 	SV* object;
@@ -159,35 +160,38 @@ void
 enqueue(object, ...)
 	SV* object;
 	INIT:
-		message message;
+		const message* message;
 		UV queue_id;
 	CODE:
 		if (items == 1)
 			Perl_croak(aTHX_ "Can't send an empty list\n");
 		queue_id = SvUV(SvRV(object));
-		message_from_stack(&message, MARK + 1);
-		queue_send(queue_id, &message);
+		message_from_stack(message, MARK + 1);
+		queue_send(queue_id, message);
 
 void
 dequeue(object)
 	SV* object;
 	INIT:
-		message message;
+		const message* message;
 		UV queue_id;
 	PPCODE:
 		queue_id = SvUV(SvRV(object));
-		queue_receive(queue_id, &message);
-		message_to_stack(&message, GIMME_V);
+		message = queue_receive(queue_id);
+		message_to_stack(message, GIMME_V);
+		destroy_message(message);
 
 void
 dequeue_nb(object)
 	SV* object;
 	INIT:
-		message message;
+		const message* message;
 		UV queue_id;
 	PPCODE:
 		queue_id = SvUV(SvRV(object));
-		if (queue_receive_nb(queue_id, &message))
-			message_to_stack(&message, GIMME_V);
+		if (message = queue_receive_nb(queue_id)) {
+			message_to_stack(message, GIMME_V);
+			destroy_message(message);
+		}
 		else
 			XSRETURN_EMPTY;

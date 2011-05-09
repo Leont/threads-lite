@@ -9,25 +9,37 @@
  * struct message
  */
 
-static SV* S_message_get_sv(pTHX_ message* message) {
+message* S_new_message(pTHX) {
+	return PerlMemShared_calloc(1, sizeof(message));
+}
+#define new_message() S_new_message(aTHX)
+
+void S_destroy_message(pTHX_ const message* message_) {
+	PerlMemShared_free(message_->string.ptr);
+	PerlMemShared_free((message*)message_);
+}
+
+static SV* S_message_get_sv(pTHX_ const message* message) {
 	SV* stored = newSVpvn(message->string.ptr, message->string.length);
-	message_destroy(message);
 	return stored;
 }
 
 #define message_get_sv(message) S_message_get_sv(aTHX_ message)
 
-static void S_message_set_sv(pTHX_ message* message, SV* value, enum message_type type) {
+static const message* S_message_new_sv(pTHX_ SV* value, enum message_type type) {
+	message* message = new_message();
 	char* string;
 	message->type = type;
 	string = SvPV(value, message->string.length);
 	message->string.ptr = savesharedpvn(string, message->string.length);
+	return message;
 }
 
-#define message_set_sv(message, value, type) S_message_set_sv(aTHX_ message, value, type)
+#define message_new_sv(value, type) S_message_new_sv(aTHX_ value, type)
 
-void S_message_store_value(pTHX_ message* message, SV* value) {
+const message* S_message_store_value(pTHX_ SV* value) {
 	dSP;
+	const message* ret;
 	ENTER;
 	SAVETMPS;
 	sv_setiv(save_scalar(gv_fetchpv("Storable::Deparse", TRUE | GV_ADDMULTI, SVt_PV)), 1);
@@ -36,10 +48,11 @@ void S_message_store_value(pTHX_ message* message, SV* value) {
 	PUTBACK;
 	call_pv("Storable::mstore", G_SCALAR);
 	SPAGAIN;
-	message_set_sv(message, POPs, STORABLE);
+	ret = message_new_sv(POPs, STORABLE);
 	FREETMPS;
 	LEAVE;
 	PUTBACK;
+	return ret;
 }
 
 static int S_is_simple(pTHX_ SV* value) {
@@ -59,23 +72,23 @@ static int S_are_simple(pTHX_ SV** begin, SV** end) {
 
 static const char pack_template[] = "(I/a)*";
 
-void S_message_from_stack(pTHX_ message* message) {
+const message* S_message_from_stack(pTHX) {
 	dSP; dMARK;
 	if (SP == MARK && is_simple(*SP)) {
-		message_set_sv(message, MARK[0], STRING);
+		return message_new_sv(MARK[0], STRING);
 	}
 	else if (are_simple(MARK + 1, SP)) {
 		SV* tmp = sv_2mortal(newSVpvn("", 0));
 		packlist(tmp, pack_template, pack_template + sizeof pack_template - 1, MARK + 1, SP + 1);
-		message_set_sv(message, tmp, PACKED);
+		return message_new_sv(tmp, PACKED);
 	}
 	else {
 		SV* list = sv_2mortal((SV*)av_make(SP - MARK, MARK + 1));
-		message_store_value(message, list);
+		return message_store_value(list);
 	}
 }
 
-SV* S_message_load_value(pTHX_ message* message) {
+SV* S_message_load_value(pTHX_ const message* message) {
 	dSP;
 	SV* ret;
 
@@ -90,7 +103,7 @@ SV* S_message_load_value(pTHX_ message* message) {
 	return ret;
 }
 
-void S_message_to_stack(pTHX_ message* message, U32 context) {
+void S_message_to_stack(pTHX_ const message* message, U32 context) {
 	dSP;
 	switch(message->type) {
 		case STRING:
@@ -128,7 +141,7 @@ void S_message_to_stack(pTHX_ message* message, U32 context) {
 	PUTBACK;
 }
 
-AV* S_message_to_array(pTHX_ message* message) {
+AV* S_message_to_array(pTHX_ const message* message) {
 	dSP;
 	AV* ret;
 	switch(message->type) {
@@ -161,7 +174,8 @@ AV* S_message_to_array(pTHX_ message* message) {
 	return ret;
 }
 
-void S_message_clone(pTHX_ message* origin, message* clone) {
+const message* S_message_clone(pTHX_ const message* origin) {
+	message* clone = PerlMemShared_calloc(1, sizeof(message));
 	switch (origin->type) {
 		case EMPTY:
 			Perl_croak(aTHX_ "Empty messages aren't allowed yet\n");
@@ -176,20 +190,6 @@ void S_message_clone(pTHX_ message* origin, message* clone) {
 		default:
 			Perl_die(aTHX, "Unknown type in message\n");
 	}
-}
-
-void S_message_destroy(pTHX_ message* message) {
-	switch (message->type) {
-		case EMPTY:
-			break;
-		case STRING:
-		case PACKED:
-		case STORABLE:
-			PerlMemShared_free(message->string.ptr);
-			Zero(message, 1, message);
-			break;
-/*		default:
-			Perl_die(aTHX, "Unknown type in message\n"); */
-	}
+	return clone;
 }
 
