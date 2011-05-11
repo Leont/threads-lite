@@ -61,7 +61,7 @@ static void wait_for_all_other_threads() {
 	COND_DESTROY(&counter.condvar);
 }
 
-static XS(end_locker) {
+static XSPROTO(end_locker) {
 	dVAR; dXSARGS;
 	perl_mutex* mutex;
 
