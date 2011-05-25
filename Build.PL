@@ -20,9 +20,11 @@ my $builder = Module::Build->new(
 	build_requires => {
 		'ExtUtils::CBuilder' => 0,
 		'Module::Build' => 0,
+		'Scalar::Util' => 0,
 		'Test::More' => 0,
 		'Test::Differences' => 0,
 		'Test::Exception' => 0,
+		'Time::HiRes' => 0,
 	},
 	requires            => {
 		perl            => 5.010,
