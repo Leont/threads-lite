@@ -6,10 +6,8 @@ enum message_type { EMPTY, STRING, PACKED, STORABLE };
 
 typedef struct {
 	enum message_type type;
-	struct {
-		char* ptr;
-		STRLEN length;
-	} string;
+	STRLEN length;
+	char value[0];
 } message;
 
 void S_destroy_message(pTHX_ const message*);

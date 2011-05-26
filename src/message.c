@@ -9,29 +9,26 @@
  * struct message
  */
 
-message* S_new_message(pTHX) {
-	return PerlMemShared_calloc(1, sizeof(message));
-}
-#define new_message() S_new_message(aTHX)
-
 void S_destroy_message(pTHX_ const message* message_) {
-	PerlMemShared_free(message_->string.ptr);
 	PerlMemShared_free((message*)message_);
 }
 
 static SV* S_message_get_sv(pTHX_ const message* message) {
-	SV* stored = newSVpvn(message->string.ptr, message->string.length);
+	SV* stored = newSVpvn(message->value, message->length);
 	return stored;
 }
 
 #define message_get_sv(message) S_message_get_sv(aTHX_ message)
 
 static const message* S_message_new_sv(pTHX_ SV* value, enum message_type type) {
-	message* message = new_message();
-	char* string;
+	message* message;
+	const char* string;
+	STRLEN len;
+	string = SvPV(value, len);
+   	message = PerlMemShared_calloc(1, sizeof(*message) + len + 1);
 	message->type = type;
-	string = SvPV(value, message->string.length);
-	message->string.ptr = savesharedpvn(string, message->string.length);
+	message->length = len;
+	Copy(string, message->value, len, char);
 	return message;
 }
 
@@ -175,21 +172,10 @@ AV* S_message_to_array(pTHX_ const message* message) {
 }
 
 const message* S_message_clone(pTHX_ const message* origin) {
-	message* clone = PerlMemShared_calloc(1, sizeof(message));
-	switch (origin->type) {
-		case EMPTY:
-			Perl_croak(aTHX_ "Empty messages aren't allowed yet\n");
-			break;
-		case STRING:
-		case PACKED:
-		case STORABLE:
-			clone->type = origin->type;
-			clone->string.length = origin->string.length;
-			clone->string.ptr = savesharedpvn(origin->string.ptr, origin->string.length);
-			break;
-		default:
-			Perl_die(aTHX, "Unknown type in message\n");
-	}
+	//return savesharedpvn(origin, sizeof(message) + origin->length + 1)
+	size_t size = sizeof(message) + origin->length + 1;
+	message* clone = PerlMemShared_calloc(1, size);
+	Copy(origin, clone, size, char);
 	return clone;
 }
 
