@@ -169,10 +169,10 @@ static void* run_thread(void* arg) {
 		call = SvRV(message_load_value(to_run));
 
 		PUSHMARK(SP);
-		XPUSHs(sv_2mortal(newSVpvn("exit", 4)));
-		status = sv_2mortal(newSVpvn("normal", 6));
-		XPUSHs(status);
-		XPUSHs(sv_2mortal(newSViv(thread->id)));
+		mXPUSHs(newSVpvn("exit", 4));
+		status = newSVpvn("normal", 6);
+		mXPUSHs(status);
+		mXPUSHs(newSViv(thread->id));
 
 		ENTER;
 		PUSHMARK(SP);
