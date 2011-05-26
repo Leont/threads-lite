@@ -1,11 +1,10 @@
-typedef struct queue_node queue_node;
+typedef message queue_node;
 
 typedef struct {
 	perl_mutex mutex;
 	perl_cond condvar;
-	queue_node* front;
-	queue_node* back;
-	queue_node* reserve;
+	message* front;
+	message* back;
 } message_queue;
 
 void queue_init(message_queue*);

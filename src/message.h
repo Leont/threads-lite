@@ -4,7 +4,8 @@
 
 enum message_type { EMPTY, STRING, PACKED, STORABLE };
 
-typedef struct {
+typedef struct message {
+	struct message* next;
 	enum message_type type;
 	STRLEN length;
 	char value[0];
