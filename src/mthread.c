@@ -90,6 +90,8 @@ mthread* S_get_self(pTHX) {
 		if (ckWARN(WARN_THREADS))
 			Perl_warn(aTHX, "Creating thread context where non existed\n");
 		ret = mthread_alloc(aTHX);
+		ret->interp = my_perl;
+
 		store_self(aTHX, ret);
 		return ret;
 	}
@@ -128,54 +130,71 @@ static void load_modules(pTHX, const message* list_mess) {
 	}
 }
 
+static PerlInterpreter* construct_perl() {
+	PerlInterpreter* my_perl = perl_alloc();
+	PERL_SET_CONTEXT(my_perl);
+	perl_construct(my_perl);
+	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
+
+	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
+	ENTER;
+	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
+	LEAVE;
+	return my_perl;
+}
+
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
-	PerlInterpreter* my_perl = thread->interp;
+	PerlInterpreter* my_perl = construct_perl();
+	thread->interp = my_perl;
+	store_self(my_perl, thread);
 	const message *to_run, *modules, *message;
 	SV *call, *status;
 	perl_mutex* shutdown_mutex;
-
-	dSP;
 
 #ifndef WIN32
 	S_set_sigmask(&thread->initial_sigmask);
 #endif
 	PERL_SET_CONTEXT(my_perl);
 
-	modules = queue_dequeue(&thread->queue, NULL);
-	load_modules(my_perl, modules);
-	to_run = queue_dequeue(&thread->queue, NULL);
+	{
+		dSP;
 
-	ENTER;
-	SAVETMPS;
-	call = SvRV(message_load_value(to_run));
+		modules = queue_dequeue(&thread->queue, NULL);
+		load_modules(my_perl, modules);
+		to_run = queue_dequeue(&thread->queue, NULL);
 
-	PUSHMARK(SP);
-	XPUSHs(sv_2mortal(newSVpvn("exit", 4)));
-	status = sv_2mortal(newSVpvn("normal", 6));
-	XPUSHs(status);
-	XPUSHs(sv_2mortal(newSViv(thread->id)));
+		ENTER;
+		SAVETMPS;
+		call = SvRV(message_load_value(to_run));
 
-	ENTER;
-	PUSHMARK(SP);
-	PUTBACK;
-	call_sv(call, G_SCALAR|G_EVAL);
-	SPAGAIN;
+		PUSHMARK(SP);
+		XPUSHs(sv_2mortal(newSVpvn("exit", 4)));
+		status = sv_2mortal(newSVpvn("normal", 6));
+		XPUSHs(status);
+		XPUSHs(sv_2mortal(newSViv(thread->id)));
 
-	if (SvTRUE(ERRSV)) {
-		sv_setpvn(status, "error", 5);
-		warn("Thread %"UVuf" got error %s\n", thread->id, SvPV_nolen(ERRSV));
-		PUSHs(ERRSV);
+		ENTER;
+		PUSHMARK(SP);
+		PUTBACK;
+		call_sv(call, G_SCALAR|G_EVAL);
+		SPAGAIN;
+
+		if (SvTRUE(ERRSV)) {
+			sv_setpvn(status, "error", 5);
+			warn("Thread %"UVuf" got error %s\n", thread->id, SvPV_nolen(ERRSV));
+			PUSHs(ERRSV);
+		}
+
+		message_from_stack_pushed(message);
+		LEAVE;
+
+		send_listeners(thread, message);
+		destroy_message(message);
+
+		FREETMPS;
+		LEAVE;
 	}
-
-	message_from_stack_pushed(message);
-	LEAVE;
-
-	send_listeners(thread, message);
-	destroy_message(message);
-
-	FREETMPS;
-	LEAVE;
 
 	shutdown_mutex = get_shutdown_mutex();
 
@@ -280,19 +299,6 @@ static mthread* start_thread(mthread* thread, IV stack_size) {
 	return thread;
 }
 
-static PerlInterpreter* construct_perl() {
-	PerlInterpreter* my_perl = perl_alloc();
-	PERL_SET_CONTEXT(my_perl);
-	perl_construct(my_perl);
-	PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
-
-	perl_parse(my_perl, xs_init, argc, (char**)argv, NULL);
-	ENTER;
-	load_module(PERL_LOADMOD_NOIMPORT, newSVpv("threads::lite", 0), NULL, NULL);
-	LEAVE;
-	return my_perl;
-}
-
 static const message* save_modules(pTHX, HV* options) {
 	SV** modules_ptr = hv_fetch(options, "modules", 7, FALSE);
 	if (modules_ptr && SvROK(*modules_ptr) && SvTYPE(SvRV(*modules_ptr)) == SVt_PVAV)
@@ -302,7 +308,6 @@ static const message* save_modules(pTHX, HV* options) {
 }
 
 static void push_thread(pTHX, mthread* thread) {
-	PERL_SET_CONTEXT(aTHX);
 	{
 		dSP;
 		SV* to_push = newRV_noinc(newSVuv(thread->id));
@@ -339,40 +344,35 @@ static int prepare_thread_create(pTHX, struct thread_create* new_thread, HV* opt
 	return get_iv_option(aTHX, options, "pool_size", 1);
 }
 
-void S_create_push_threads(tTHX self, HV* options, SV* startup) {
+void S_create_push_threads(pTHX, HV* options, SV* startup) {
 	struct thread_create thread_options;
 	int clone_number;
 	int counter;
 
 	Zero(&thread_options, 1, struct thread_create);
-	clone_number = prepare_thread_create(self, &thread_options, options, startup);
+	clone_number = prepare_thread_create(aTHX, &thread_options, options, startup);
 
 	for (counter = 0; counter < clone_number; ++counter) {
-		PerlInterpreter* my_perl;
 		mthread* thread;
 		const message* to_run;
 		const message* modules;
 
-		my_perl = construct_perl();
-
-		thread = mthread_alloc(my_perl);
-		store_self(my_perl, thread);
+		thread = mthread_alloc(aTHX);
 
 		if (thread_options.monitor)
-			thread_add_listener(self, thread->id, thread_options.parent_id);
+			thread_add_listener(aTHX, thread->id, thread_options.parent_id);
 
 		modules = message_clone(thread_options.modules);
 		queue_enqueue(&thread->queue, modules, NULL);
 
-		push_thread(self, thread);
+		push_thread(aTHX, thread);
 
 		to_run = message_clone(thread_options.to_run);
 		queue_enqueue(&thread->queue, to_run, NULL);
 		start_thread(thread, thread_options.stack_size);
 	}
-	PERL_SET_CONTEXT(self);
 
-	S_destroy_message(self, thread_options.to_run);
+	destroy_message(thread_options.to_run);
 	if (thread_options.modules)
-		S_destroy_message(self, thread_options.modules);
+		destroy_message(thread_options.modules);
 }
