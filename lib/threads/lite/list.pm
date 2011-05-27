@@ -11,7 +11,7 @@ use threads::lite qw/self spawn receive receiveq/;
 use constant DEFAULT_THREADS => 4;
 use Carp qw/carp/;
 
-our $VERSION = '0.030';
+our $VERSION = '0.031';
 our $THREADS ||= DEFAULT_THREADS;
 
 sub _mapper {
@@ -125,11 +125,11 @@ threads::lite::list - Threaded list utilities
 
 =head1 VERSION
 
-Version 0.029_005
+Version 0.031
 
 =head1 SYNOPSIS
 
-This module implements threads for perl. One crucial difference with normal threads is that the threads are B<entirely> disconnected, except by message queues (channel). It thus facilitates a message passing style of multi-threading.
+This module implements some parallel list utilities op top of threads::lite.
 
 =head1 FUNCTIONS
 

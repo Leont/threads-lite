@@ -1,6 +1,13 @@
 Revision history for threads-lite
 
-0.030      2012-03-05
+0.031      2011-05-27
+           Rewrote allocation strategy for messages to be more straightforward
+           Start new interpreters in new threads, not earlier; This makes cloning impossible
+           Depend on 5.10.1 instead of 5.10.0, as the latter has different smartmatching semantics
+           Fixed FSF address in license (RT #68064)
+           Fixed linkage (fixes RT #68111)
+
+0.030      2011-03-05
            Released 0.029_005 as 0.030
 
 0.029_005  2011-02-16
