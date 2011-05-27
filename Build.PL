@@ -27,7 +27,7 @@ my $builder = Module::Build->new(
 		'Time::HiRes' => 0,
 	},
 	requires            => {
-		perl            => 5.010,
+		perl            => 5.010001,
 		Exporter        => 5.57,
 		Storable        => 2.05,
 	},

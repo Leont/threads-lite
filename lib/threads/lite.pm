@@ -5,7 +5,7 @@ use warnings;
 
 our $VERSION = '0.030';
 
-use 5.010;
+use 5.010001;
 
 use Exporter 5.57 qw//;
 use Storable 2.05 ();
