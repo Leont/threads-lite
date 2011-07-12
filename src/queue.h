@@ -1,18 +1,25 @@
 typedef message queue_node;
 
+struct _message_queue;
+typedef struct _message_queue message_queue;
+
 typedef struct {
+	void (*enqueue)(pTHX_ message_queue* queue, const message* message, perl_mutex* lock);
+	const message* (*dequeue)(pTHX_ message_queue* queue, perl_mutex* lock);
+	const message* (*dequeue_nb)(pTHX_ message_queue* queue, perl_mutex* lock);
+	void (*destroy)(pTHX_ message_queue*);
+} message_queue_vtable;
+
+struct _message_queue {
+	const message_queue_vtable* table;
 	perl_mutex mutex;
 	perl_cond condvar;
 	message* front;
 	message* back;
-} message_queue;
+};
 
 void queue_init(message_queue*);
-void S_queue_enqueue(pTHX_ message_queue* queue, const message* message, perl_mutex* lock);
-#define queue_enqueue(queue, message, lock) S_queue_enqueue(aTHX_ queue, message, lock)
-const message* S_queue_dequeue(pTHX_ message_queue* queue, perl_mutex* lock);
-#define queue_dequeue(queue, lock) S_queue_dequeue(aTHX_ queue, lock)
-const message* S_queue_dequeue_nb(pTHX_ message_queue* queue, perl_mutex* lock);
-#define queue_dequeue_nb(queue, lock) S_queue_dequeue_nb(aTHX_ queue, lock)
-void S_queue_destroy(pTHX_ message_queue*);
-#define queue_destroy(queue) S_queue_destroy(aTHX_ queue)
+#define queue_enqueue(queue, message, lock) ((queue)->table->enqueue)(aTHX_ queue, message, lock)
+#define queue_dequeue(queue, lock) ((queue)->table->dequeue)(aTHX_ queue, lock)
+#define queue_dequeue_nb(queue, lock) ((queue)->table->dequeue_nb)(aTHX_ queue, lock)
+#define queue_destroy(queue) ((queue)->table->destroy)(aTHX_ queue)
