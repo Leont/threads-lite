@@ -160,9 +160,9 @@ static void* run_thread(void* arg) {
 	{
 		dSP;
 
-		modules = queue_dequeue(&thread->queue, NULL);
+		modules = queue_dequeue(thread->queue, NULL);
 		load_modules(my_perl, modules);
-		to_run = queue_dequeue(&thread->queue, NULL);
+		to_run = queue_dequeue(thread->queue, NULL);
 
 		ENTER;
 		SAVETMPS;
@@ -363,12 +363,12 @@ void S_create_push_threads(pTHX, HV* options, SV* startup) {
 			thread_add_listener(aTHX, thread->id, thread_options.parent_id);
 
 		modules = message_clone(thread_options.modules);
-		queue_enqueue(&thread->queue, modules, NULL);
+		queue_enqueue(thread->queue, modules, NULL);
 
 		push_thread(aTHX, thread);
 
 		to_run = message_clone(thread_options.to_run);
-		queue_enqueue(&thread->queue, to_run, NULL);
+		queue_enqueue(thread->queue, to_run, NULL);
 		start_thread(thread, thread_options.stack_size);
 	}
 

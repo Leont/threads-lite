@@ -18,7 +18,8 @@ struct _message_queue {
 	message* back;
 };
 
-void queue_init(message_queue*);
+message_queue* S_queue_simple_alloc(pTHX);
+#define queue_simple_alloc() S_queue_simple_alloc(aTHX)
 #define queue_enqueue(queue, message, lock) ((queue)->table->enqueue)(aTHX_ queue, message, lock)
 #define queue_dequeue(queue, lock) ((queue)->table->dequeue)(aTHX_ queue, lock)
 #define queue_dequeue_nb(queue, lock) ((queue)->table->dequeue_nb)(aTHX_ queue, lock)

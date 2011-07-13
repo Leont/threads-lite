@@ -107,7 +107,7 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	MUTEX_UNLOCK(&counter.mutex);
 
 	ret = PerlMemShared_calloc(1, sizeof *ret);
-	queue_init(&ret->queue);
+	ret->queue = queue_simple_alloc();
 	ret->id = resource_addobject(&threads, ret);
 	ret->interp = NULL;
 	MUTEX_INIT(&ret->lock);
@@ -119,7 +119,7 @@ void mthread_destroy(mthread* thread) {
 
 	PerlInterpreter* my_perl = thread->interp;
 	threads.objects[thread->id] = NULL;
-	queue_destroy(&thread->queue);
+	queue_destroy(thread->queue);
 	MUTEX_UNLOCK(&threads.lock);
 
 	MUTEX_DESTROY(&thread->lock);
@@ -139,9 +139,7 @@ static mthread* S_get_thread(pTHX_ UV thread_id) {
 #define get_thread(id) S_get_thread(aTHX_ id)
 
 UV S_queue_alloc(pTHX_ IV linked_to) {
-	message_queue* queue;
-	queue = PerlMemShared_calloc(1, sizeof *queue);
-	queue_init(queue);
+	message_queue* queue = queue_simple_alloc();
 	return resource_addobject(&queues, queue);
 }
 
@@ -172,7 +170,7 @@ void S_thread_send(pTHX_ UV thread_id, const message* message) {
 	MUTEX_LOCK(&threads.lock);
 	THREAD_TRY {
 		mthread* thread = get_thread(thread_id);
-		queue_enqueue(&thread->queue, message, &threads.lock);
+		queue_enqueue(thread->queue, message, &threads.lock);
 	} THREAD_CATCH( MUTEX_UNLOCK(&threads.lock) );
 }
 
@@ -224,7 +222,7 @@ void S_send_listeners(pTHX_ mthread* thread, const message* mess) {
 		if (thread_id >= threads.current || threads.objects[thread_id] == NULL)
 			continue;
 		clone = message_clone(mess);
-		queue_enqueue(&((mthread*)threads.objects[thread_id])->queue, clone, &threads.lock);
+		queue_enqueue(((mthread*)threads.objects[thread_id])->queue, clone, &threads.lock);
 	}
 	MUTEX_UNLOCK(&thread->lock);
 }

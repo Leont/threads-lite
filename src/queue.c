@@ -108,9 +108,11 @@ const message_queue_vtable simple_table = {
 	S_queue_destroy
 };
 
-void queue_init(message_queue* queue) {
-	Zero(queue, 1, message_queue);
-	MUTEX_INIT(&queue->mutex);
-	COND_INIT(&queue->condvar);
-	queue->table = &simple_table;
+message_queue* S_queue_simple_alloc(pTHX) {
+	message_queue* ret = PerlMemShared_calloc(1, sizeof(message_queue));
+	Zero(ret, 1, message_queue);
+	ret->table = &simple_table;
+	MUTEX_INIT(&ret->mutex);
+	COND_INIT(&ret->condvar);
+	return ret;
 }

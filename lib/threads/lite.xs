@@ -54,7 +54,7 @@ _receive()
 		AV* ret;
 	CODE:
 		mthread* thread = get_self();
-		const message* message = queue_dequeue(&thread->queue, NULL);
+		const message* message = queue_dequeue(thread->queue, NULL);
 		ret = message_to_array(message);
 		destroy_message(message);
 		RETVAL = newRV_noinc((SV*)ret);
@@ -67,7 +67,7 @@ _receive_nb()
 		AV* ret;
 	CODE:
 		mthread* thread = get_self();
-		const message* message = queue_dequeue_nb(&thread->queue, NULL);
+		const message* message = queue_dequeue_nb(thread->queue, NULL);
 		if (message) {
 			ret = message_to_array(message);
 			destroy_message(message);
