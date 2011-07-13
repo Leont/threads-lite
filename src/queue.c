@@ -99,6 +99,7 @@ static void S_queue_destroy(pTHX_ message_queue* queue) {
 	COND_DESTROY(&queue->condvar);
 	MUTEX_UNLOCK(&queue->mutex);
 	MUTEX_DESTROY(&queue->mutex);
+	PerlMemShared_free(queue);
 }
 
 const message_queue_vtable simple_table = {
