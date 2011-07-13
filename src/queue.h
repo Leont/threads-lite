@@ -1,5 +1,3 @@
-typedef message queue_node;
-
 struct _message_queue;
 typedef struct _message_queue message_queue;
 
@@ -12,10 +10,6 @@ typedef struct {
 
 struct _message_queue {
 	const message_queue_vtable* table;
-	perl_mutex mutex;
-	perl_cond condvar;
-	message* front;
-	message* back;
 };
 
 message_queue* S_queue_simple_alloc(pTHX);

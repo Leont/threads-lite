@@ -9,6 +9,14 @@
  * Message queues
  */
 
+typedef struct {
+	message_queue parent;
+	perl_mutex mutex;
+	perl_cond condvar;
+	message* front;
+	message* back;
+} message_queue_impl ;
+
 static void node_unshift(message** position, message* new_node) {
 	new_node->next = *position;
 	*position = new_node;
@@ -39,7 +47,8 @@ static void S_node_destroy(pTHX_ message** current) {
 }
 #define node_destroy(current) S_node_destroy(aTHX_ current)
 
-static void S_queue_enqueue(pTHX_ message_queue* queue, const message* message_, perl_mutex* external_lock) {
+static void S_queue_enqueue(pTHX_ message_queue* _queue, const message* message_, perl_mutex* external_lock) {
+	message_queue_impl* queue = (message_queue_impl*) _queue;
 	message* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
@@ -53,7 +62,8 @@ static void S_queue_enqueue(pTHX_ message_queue* queue, const message* message_,
 	MUTEX_UNLOCK(&queue->mutex);
 }
 
-static const message* queue_shift(message_queue* queue) {
+static const message* queue_shift(message_queue_impl* _queue) {
+	message_queue_impl* queue = (message_queue_impl*) _queue;
 	const message* ret = node_shift(&queue->front);
 
 	if (queue->front == NULL)
@@ -61,7 +71,8 @@ static const message* queue_shift(message_queue* queue) {
 	return ret;
 }
 
-static const message* S_queue_dequeue(pTHX_ message_queue* queue, perl_mutex* external_lock) {
+static const message* S_queue_dequeue(pTHX_ message_queue* _queue, perl_mutex* external_lock) {
+	message_queue_impl* queue = (message_queue_impl*) _queue;
 	const message* ret;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
@@ -76,7 +87,8 @@ static const message* S_queue_dequeue(pTHX_ message_queue* queue, perl_mutex* ex
 	return ret;
 }
 
-static const message* S_queue_dequeue_nb(pTHX_ message_queue* queue, perl_mutex* external_lock) {
+static const message* S_queue_dequeue_nb(pTHX_ message_queue* _queue, perl_mutex* external_lock) {
+	message_queue_impl* queue = (message_queue_impl*) _queue;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		MUTEX_UNLOCK(external_lock);
@@ -93,7 +105,8 @@ static const message* S_queue_dequeue_nb(pTHX_ message_queue* queue, perl_mutex*
 	}
 }
 
-static void S_queue_destroy(pTHX_ message_queue* queue) {
+static void S_queue_destroy(pTHX_ message_queue* _queue) {
+	message_queue_impl* queue = (message_queue_impl*) _queue;
 	MUTEX_LOCK(&queue->mutex);
 	node_destroy(&queue->front);
 	COND_DESTROY(&queue->condvar);
@@ -110,10 +123,10 @@ const message_queue_vtable simple_table = {
 };
 
 message_queue* S_queue_simple_alloc(pTHX) {
-	message_queue* ret = PerlMemShared_calloc(1, sizeof(message_queue));
+	message_queue_impl* ret = PerlMemShared_calloc(1, sizeof(message_queue_impl));
 	Zero(ret, 1, message_queue);
-	ret->table = &simple_table;
+	ret->parent.table = &simple_table;
 	MUTEX_INIT(&ret->mutex);
 	COND_INIT(&ret->condvar);
-	return ret;
+	return (message_queue*)ret;
 }
