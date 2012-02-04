@@ -16,3 +16,4 @@ lib/threads/*.c
 *.o
 *META.yml
 Makefile.PL
+src/tables.h

@@ -1,6 +1,7 @@
 Build.PL
 Changes
 examples/reader.pl
+examples/chameneos
 lib/threads/lite.pm
 lib/threads/lite.xs
 lib/threads/lite/list.pm
@@ -21,6 +22,7 @@ src/resources.c
 src/resources.h
 src/sync.c
 src/sync.h
+src/tables.h.PL
 t/00-load.t
 t/10-basics.t
 t/11-input.t

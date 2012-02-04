@@ -3,6 +3,7 @@ typedef struct mthread {
 	perl_mutex lock;
 	message_queue* queue;
 	UV id;
+	bool alive;
 #ifndef WIN32
 	sigset_t initial_sigmask;   /* Thread wakes up with signals blocked */
 #endif

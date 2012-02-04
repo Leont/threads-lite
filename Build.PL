@@ -1,4 +1,4 @@
-use 5.010;
+use 5.010_001;
 use strict;
 use warnings;
 use Module::Build;
@@ -32,6 +32,9 @@ my $builder = Module::Build->new(
 		Storable        => 2.05,
 	},
 	c_source            => 'src',
+	PL_files            => {
+		'src/tables.h.PL' => 'src/tables.h',
+	},
     add_to_cleanup      => [ 'threads-lite-*' ],
 	create_makefile_pl  => 'small',
 	meta_merge => {

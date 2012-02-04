@@ -5,6 +5,7 @@
 \.bak$
 ^MANIFEST\.SKIP$
 \.swp
+src/tables.h
 \.tdy
 \.tar\.gz
 threads-lite-.*
@@ -15,3 +16,4 @@ threads-lite-.*
 ^benchmark$
 ^MYMETA.yml$
 ^Makefile$
+^MYMETA\.json$

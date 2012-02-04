@@ -11,6 +11,10 @@
 
 #include "tables.h"
 
+#ifdef __MSVC__
+#define __thread __declspec(thread)
+#endif
+
 /*
  * !!! global data !!!
  */
@@ -30,7 +34,7 @@ static struct {
 
 static void wait_for_all_other_threads() {
 	MUTEX_LOCK(&counter.mutex);
-	while (counter.count > 1) 
+	while (counter.count > 1)
 		COND_WAIT(&counter.condvar, &counter.mutex);
 
 	MUTEX_UNLOCK(&counter.mutex);
@@ -43,6 +47,7 @@ static XSPROTO(end_locker) {
 	perl_mutex* mutex;
 
 	wait_for_all_other_threads();
+	thread_db_free(threads);
 
 	mutex = get_shutdown_mutex();
 	MUTEX_LOCK(mutex);
@@ -64,9 +69,9 @@ void global_init(pTHX) {
 		COND_INIT(&counter.condvar);
 		counter.count = 0;
 
-		threads = thread_db_new();
+		threads = thread_db_new(TRUE);
 		MUTEX_INIT(&threads_lock);
-		queues = queue_db_new();
+		queues = queue_db_new(TRUE);
 		MUTEX_INIT(&queues_lock);
 		ret = mthread_alloc(aTHX);
 		ret->interp = my_perl;
@@ -78,11 +83,12 @@ void global_init(pTHX) {
 	}
 }
 
+static __thread thread_table* threads_local;
 mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	mthread* ret;
-	UV id = generator();
 
 	MUTEX_LOCK(&counter.mutex);
+	UV id = generator();
 	counter.count++;
 	MUTEX_UNLOCK(&counter.mutex);
 
@@ -92,17 +98,18 @@ mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	thread_db_store(threads, id, ret);
 	ret->id = id;
 	ret->interp = NULL;
+	ret->cache = NULL;
+	ret->alive = 1;
 	MUTEX_INIT(&ret->lock);
 	return ret;
 }
 
 void mthread_destroy(mthread* thread) {
-	MUTEX_LOCK(&threads_lock);
-
 	PerlInterpreter* my_perl = thread->interp;
-	thread_db_delete(threads, thread->id);
+	MUTEX_LOCK(&thread->lock);
+	thread->alive = 0;
 	queue_destroy(thread->queue);
-	MUTEX_UNLOCK(&threads_lock);
+	MUTEX_UNLOCK(&thread->lock);
 
 	MUTEX_DESTROY(&thread->lock);
 
@@ -112,7 +119,26 @@ void mthread_destroy(mthread* thread) {
 	MUTEX_UNLOCK(&counter.mutex);
 }
 
-#define get_thread(id) thread_db_fetch(threads, id)
+static mthread* S_get_thread(pTHX_ UV id) {
+	mthread* ret;
+	if (threads_local == NULL);
+		threads_local = thread_db_new(FALSE);
+	ret = thread_db_fetch(threads_local, id);
+	if (!ret) {
+		MUTEX_LOCK(&threads_lock);
+		ret = thread_db_fetch(threads, id);
+		if (ret)
+			thread_db_incref(threads, id);
+		MUTEX_UNLOCK(&threads_lock);
+		if (!ret)
+			Perl_croak(aTHX_  "Thread %"UVuf" doesn't exist", id);
+	}
+	if (!ret->alive)
+		Perl_croak(aTHX_ "Thread is no longer alive");
+	return ret;
+}
+
+#define get_thread(id) S_get_thread(aTHX_ id)
 
 UV S_queue_alloc(pTHX) {
 	message_queue* queue = queue_simple_alloc();
@@ -139,11 +165,8 @@ UV S_queue_alloc(pTHX) {
 void S_thread_send(pTHX_ UV thread_id, const message* message) {
 	dXCPT;
 
-	MUTEX_LOCK(&threads_lock);
-	THREAD_TRY {
-		mthread* thread = get_thread(thread_id);
-		queue_enqueue(thread->queue, message, &threads_lock);
-	} THREAD_CATCH( MUTEX_UNLOCK(&threads_lock) );
+	mthread* thread = get_thread(thread_id);
+	queue_enqueue(thread->queue, message, NULL);
 }
 
 void S_queue_send(pTHX_ UV queue_id, const message* message) {
@@ -207,14 +230,14 @@ void S_send_listeners(pTHX_ mthread* thread, const message* mess) {
 void thread_add_listener(pTHX, UV talker, UV listener) {
 	dXCPT;
 
-	MUTEX_LOCK(&threads_lock);
+	mthread* thread = get_thread(talker);
+	MUTEX_LOCK(&thread->lock);
 	THREAD_TRY {
-		mthread* thread = get_thread(talker);
 		if (thread->listeners.alloc == thread->listeners.head) {
 			thread->listeners.alloc = thread->listeners.alloc ? thread->listeners.alloc * 2 : 1;
 			thread->listeners.list = PerlMemShared_realloc(thread->listeners.list, sizeof(IV) * thread->listeners.alloc);
 		}
 		thread->listeners.list[thread->listeners.head++] = listener;
-	} THREAD_FINALLY( MUTEX_UNLOCK(&threads_lock) );
+	} THREAD_FINALLY( MUTEX_UNLOCK(&thread->lock) );
 }
 
