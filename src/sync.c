@@ -39,8 +39,9 @@ void semaphore_down(semaphore* sem) {
 }
 
 IV semaphore_value(semaphore* sem) {
+	IV ret;
 	MUTEX_LOCK(&sem->lock);
-	IV ret = sem->value;
+	ret = sem->value;
 	MUTEX_UNLOCK(&sem->lock);
 	return ret;
 }

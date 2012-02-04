@@ -86,9 +86,10 @@ void global_init(pTHX) {
 static __thread thread_table* threads_local;
 mthread* mthread_alloc(PerlInterpreter* my_perl) {
 	mthread* ret;
+	UV id;
 
 	MUTEX_LOCK(&counter.mutex);
-	UV id = generator();
+	id = generator();
 	counter.count++;
 	MUTEX_UNLOCK(&counter.mutex);
 

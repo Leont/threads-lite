@@ -172,7 +172,7 @@ AV* S_message_to_array(pTHX_ const message* message) {
 }
 
 const message* S_message_clone(pTHX_ const message* origin) {
-	//return savesharedpvn(origin, sizeof(message) + origin->length + 1)
+	/* return savesharedpvn(origin, sizeof(message) + origin->length + 1) */
 	size_t size = sizeof(message) + origin->length + 1;
 	message* clone = PerlMemShared_calloc(1, size);
 	Copy(origin, clone, size, char);

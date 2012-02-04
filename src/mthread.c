@@ -146,9 +146,9 @@ static PerlInterpreter* construct_perl() {
 static void* run_thread(void* arg) {
 	mthread* thread = (mthread*) arg;
 	PerlInterpreter* my_perl = construct_perl();
+	const message *to_run, *modules, *message;
 	thread->interp = my_perl;
 	store_self(my_perl, thread);
-	const message *to_run, *modules, *message;
 	SV *call, *status;
 	perl_mutex* shutdown_mutex;
 
