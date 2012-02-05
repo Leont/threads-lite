@@ -20,8 +20,6 @@ src/queue.c
 src/queue.h
 src/resources.c
 src/resources.h
-src/sync.c
-src/sync.h
 src/tables.h.PL
 t/00-load.t
 t/10-basics.t
