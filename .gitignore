@@ -15,5 +15,6 @@ cover_db
 lib/threads/*.c
 *.o
 *META.yml
+*META.json
 Makefile.PL
 src/tables.h
