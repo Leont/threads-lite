@@ -3,7 +3,7 @@ package threads::lite;
 use strict;
 use warnings;
 
-our $VERSION = '0.031';
+our $VERSION = '0.031_001';
 
 use 5.010001;
 
@@ -140,7 +140,7 @@ threads::lite - Actor model threading for Perl
 
 =head1 VERSION
 
-Version 0.031
+Version 0.031_001
 
 =head1 SYNOPSIS
 

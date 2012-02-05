@@ -1,5 +1,12 @@
 Revision history for threads-lite
 
+0.031_001  2012-02-05
+           Use vtable for queues
+           Use hash table for threads and queues
+           Use per thread thread tables
+           Fix C89 compatibility
+           Fix loading of feature.pm
+
 0.031      2011-05-27
            Rewrote allocation strategy for messages to be more straightforward
            Start new interpreters in new threads, not earlier; This makes cloning impossible
