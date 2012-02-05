@@ -23,6 +23,7 @@ require threads::lite::tid;
 use threads::lite::queue;
 
 sub import {
+	require feature;
 	feature->import('switch');
 	goto &Exporter::import;
 }
