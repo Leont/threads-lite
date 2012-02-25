@@ -1,5 +1,7 @@
 Revision history for threads-lite
 
+           Fixed C89 issue
+
 0.031_001  2012-02-05
            Use vtable for queues
            Use hash table for threads and queues
