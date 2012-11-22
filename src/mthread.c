@@ -150,12 +150,12 @@ static void* run_thread(void* arg) {
 	SV *call, *status;
 	perl_mutex* shutdown_mutex;
 	thread->interp = my_perl;
-	store_self(my_perl, thread);
 
 #ifndef WIN32
 	S_set_sigmask(&thread->initial_sigmask);
 #endif
 	PERL_SET_CONTEXT(my_perl);
+	store_self(my_perl, thread);
 
 	{
 		dSP;
