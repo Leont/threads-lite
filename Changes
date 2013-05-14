@@ -1,5 +1,6 @@
 Revision history for threads-lite
 
+0.032      2013-02-19
            Fixed C89 issue
            Postpone store_self a little
 
