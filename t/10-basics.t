@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use experimental 'smartmatch';
 
 use Test::More tests => 6;
 use Test::Differences;

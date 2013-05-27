@@ -30,6 +30,7 @@ my $builder = Module::Build->new(
 		perl            => 5.010001,
 		Exporter        => 5.57,
 		Storable        => 2.05,
+		experimental    => 0.003,
 	},
 	c_source            => 'src',
 	PL_files            => {

@@ -3,6 +3,7 @@ package threads::lite::list;
 use strict;
 use warnings;
 use 5.010;
+use experimental 'smartmatch';
 use Exporter 5.57 qw/import/;
 
 our @EXPORT_OK = qw/parallel_map parallel_grep/;

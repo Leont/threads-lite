@@ -3,6 +3,8 @@ package threads::lite;
 use strict;
 use warnings;
 
+use experimental 'smartmatch';
+
 our $VERSION = '0.032';
 
 use 5.010001;

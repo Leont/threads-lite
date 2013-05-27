@@ -2,6 +2,7 @@ package threads::lite::tid;
 
 use strict;
 use warnings;
+use experimental 'smartmatch';
 use Scalar::Util qw/blessed/;
 
 use overload '~~' => sub {
