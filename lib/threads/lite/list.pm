@@ -12,7 +12,7 @@ use threads::lite qw/self spawn receive receiveq/;
 use constant DEFAULT_THREADS => 4;
 use Carp qw/carp/;
 
-our $VERSION = '0.032';
+our $VERSION = '0.033';
 our $THREADS ||= DEFAULT_THREADS;
 
 sub _mapper {
@@ -126,7 +126,7 @@ threads::lite::list - Threaded list utilities
 
 =head1 VERSION
 
-Version 0.032
+Version 0.033
 
 =head1 SYNOPSIS
 

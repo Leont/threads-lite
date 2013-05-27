@@ -1,5 +1,8 @@
 Revision history for threads-lite
 
+0.033      2013-05-27
+           Disable smartmatch warnings
+
 0.032      2013-02-19
            Fixed C89 issue
            Postpone store_self a little
