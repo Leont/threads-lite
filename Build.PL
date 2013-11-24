@@ -41,7 +41,7 @@ my $builder = Module::Build->new(
 	meta_merge => {
 		resources       => {
 			bugtracker  => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=threads-lite',
-			repository  => 'http://github.com/Leont/threads-lite/tree',
+			repository  => 'http://github.com/Leont/threads-lite',
 		},
 		keywords       => [ 'threads', 'channels' ],
 	},
