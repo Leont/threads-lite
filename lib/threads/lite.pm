@@ -5,7 +5,7 @@ use warnings;
 
 use experimental 'smartmatch';
 
-our $VERSION = '0.033';
+our $VERSION = '0.034';
 
 use 5.010001;
 
@@ -142,7 +142,7 @@ threads::lite - Actor model threading for Perl
 
 =head1 VERSION
 
-Version 0.033
+Version 0.034
 
 =head1 SYNOPSIS
 

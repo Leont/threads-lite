@@ -26,7 +26,7 @@ use overload '~~' => sub {
 
 use threads::lite qw/self receive/;
 
-our $VERSION = '0.033';
+our $VERSION = '0.034';
 
 sub rpc {
 	my ($self, @arguments) = @_;
@@ -50,7 +50,7 @@ threads::lite::tid - a threads::lite thread id
 
 =head1 VERSION
 
-Version 0.033
+Version 0.034
 
 =head1 SYNOPSIS
 
