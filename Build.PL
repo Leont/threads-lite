@@ -37,7 +37,6 @@ my $builder = Module::Build->new(
 		'src/tables.h.PL' => 'src/tables.h',
 	},
     add_to_cleanup      => [ 'threads-lite-*' ],
-	create_makefile_pl  => 'small',
 	meta_merge => {
 		resources       => {
 			bugtracker  => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=threads-lite',
@@ -45,7 +44,6 @@ my $builder = Module::Build->new(
 		},
 		keywords       => [ 'threads', 'channels' ],
 	},
-	sign                => 1,
 );
 
 $builder->create_build_script();
