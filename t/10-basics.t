@@ -6,17 +6,16 @@ use experimental 'smartmatch';
 
 use Test::More tests => 6;
 use Test::Differences;
-use Time::HiRes qw/sleep/;
 
 use threads::lite qw/spawn receive self/;
 
-my $thread = spawn({ modules => ['Carp'], monitor => 1 }, \&thread );
+my $thread = spawn({ modules => ['Carp', 'Time::HiRes'], monitor => 1 }, \&thread );
 
 $thread->send(self());
 
 sub thread {
 	my $other = threads::lite::receiveq;
-	sleep .1;
+	Time::HiRes::sleep(.1);
 	$other->send('foo');
 	$other->send('bar');
 	$other->send('something else');

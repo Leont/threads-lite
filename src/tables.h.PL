@@ -228,6 +228,6 @@ STATIC void S_${name}_db_free(pTHX_ ${name}_table * const t) {
 #define ${name}_db_free(t) S_${name}_db_free(aTHX_ t)
 
 END
-	$entry =~ s/ \$ { (\w+) } /$replacements{$1}/gxe;
+	$entry =~ s/ \$ \{ (\w+) \} /$replacements{$1}/gxe;
 	print $entry;
 }
