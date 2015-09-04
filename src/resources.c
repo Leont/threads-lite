@@ -164,8 +164,6 @@ UV S_queue_alloc(pTHX) {
 
 
 void S_thread_send(pTHX_ UV thread_id, const message* message) {
-	dXCPT;
-
 	mthread* thread = get_thread(thread_id);
 	queue_enqueue(thread->queue, message, NULL);
 }

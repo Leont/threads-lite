@@ -333,14 +333,12 @@ static IV get_iv_option(pTHX_ HV* options, const char* key, IV default_value) {
 }
 
 static int prepare_thread_create(pTHX, struct thread_create* new_thread, HV* options, SV* startup) {
-	UV id = get_self()->id;
-
 	new_thread->to_run = message_store_value(startup);
 
 	new_thread->modules = save_modules(aTHX, options);
 
 	new_thread->monitor = get_iv_option(aTHX, options, "monitor", FALSE);
-	new_thread->stack_size = get_iv_option(aTHX, options, "stack_size", 65536);
+	new_thread->stack_size = get_iv_option(aTHX, options, "stack_size", 512 * 1024);
 	return get_iv_option(aTHX, options, "pool_size", 1);
 }
 

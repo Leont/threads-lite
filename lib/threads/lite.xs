@@ -10,7 +10,7 @@
 
 int S_return_elements(pTHX_ AV* values, U32 context) {
 	dSP;
-	UV count;
+	UV count = 0;
 	if (context == G_SCALAR) {
 		SV** ret = av_fetch(values, 0, FALSE);
 		PUSHs(ret ? *ret : &PL_sv_undef);
@@ -35,7 +35,7 @@ PROTOTYPES: DISABLED
 BOOT:
 	global_init(aTHX);
 
-SV*
+void
 spawn(options, startup)
 	SV* options;
 	SV* startup;
@@ -81,8 +81,8 @@ _receive_nb()
 SV*
 self()
 	CODE:
-		mthread* thread = get_self();
-		SV** ret = hv_fetch(PL_modglobal, "threads::lite::self", 19, FALSE);
+		/*mthread* thread = get_self();*/
+		SV** ret = hv_fetchs(PL_modglobal, "threads::lite::self", FALSE);
 		RETVAL = SvREFCNT_inc_NN(*ret);
 	OUTPUT:
 		RETVAL

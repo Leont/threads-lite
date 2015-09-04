@@ -17,11 +17,6 @@ typedef struct {
 	message* back;
 } message_queue_impl ;
 
-static void node_unshift(message** position, message* new_node) {
-	new_node->next = *position;
-	*position = new_node;
-}
-
 static const message* node_shift(message** position) {
 	message* ret = *position;
 	*position = (*position)->next;
@@ -49,7 +44,6 @@ static void S_node_destroy(pTHX_ message** current) {
 
 static void S_queue_enqueue(pTHX_ message_queue* _queue, const message* message_, perl_mutex* external_lock) {
 	message_queue_impl* queue = (message_queue_impl*) _queue;
-	message* new_entry;
 	MUTEX_LOCK(&queue->mutex);
 	if (external_lock)
 		MUTEX_UNLOCK(external_lock);
