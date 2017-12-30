@@ -5,8 +5,8 @@ use Module::Build;
 use Config;
 
 if (not $Config{useithreads}) {
-	print STDERR "Can't use threads::lite without threading support";
-	exit 0;
+	print STDERR "Can't use threads::lite without threading support\n";
+	exit 1;
 }
 
 my $builder = Module::Build->new(
